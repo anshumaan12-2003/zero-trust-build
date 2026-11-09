@@ -1,0 +1,24 @@
+{
+  "name": "zero-trust-build-app",
+  "version": "1.0.0",
+  "description": "Demo API that the Zero Trust Build Pipeline protects",
+  "private": true,
+  "license": "Apache-2.0",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.js",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3"
+  }
+}
