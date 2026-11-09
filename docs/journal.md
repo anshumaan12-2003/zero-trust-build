@@ -33,3 +33,13 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Fixed by:** named the jobs, commented each permission, and added a concurrency group. Made the app handle `SIGTERM`, which cut shutdown from 30 seconds to 2.
 - **Learned (write this in your own words):**
 - **Next:** Week 3, run Tetragon on a GitHub runner.
+
+## 2026-11-09: Week 3
+
+- **Did:** ran Tetragon on a GitHub runner with eight harmless test cases. Results are in `docs/week3-sensor-results.md`.
+- **Broke:** my first filter matched almost no events, because I assumed the container ID field was 15 characters long. It's 31.
+- **Fixed by:** checking the real field length in the evidence, not trusting the schema comment.
+- **Proved:** `tcp_connect` misses blocked connections, while `security_socket_connect` catches them.
+- **Found:** DNS lookups and refused `/proc/<pid>/mem` reads leave no event with the current policies.
+- **Learned (write this in your own words):**
+- **Next:** Week 4, run the demo build with the sensor on.

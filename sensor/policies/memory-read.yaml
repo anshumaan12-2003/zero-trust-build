@@ -1,0 +1,18 @@
+# Reports attempts to read another process's memory.
+# Based on Tetragon's examples/tracingpolicy/sys_ptrace.yaml.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "memory-read"
+spec:
+  kprobes:
+  - call: "sys_ptrace"
+    syscall: true
+    args:
+    - index: 1
+      type: "int"
+  - call: "sys_process_vm_readv"
+    syscall: true
+    args:
+    - index: 0
+      type: "int"

@@ -1,0 +1,44 @@
+name: sensor-test
+
+on:
+  pull_request:
+    paths:
+      - "sensor/**"
+      - ".github/workflows/sensor-test.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    name: Record test cases with Tetragon
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the code
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Show the kernel
+        run: uname -r && ls -l /sys/kernel/btf/vmlinux
+      - name: Combine the real and experimental policies
+        run: |
+          mkdir -p "$RUNNER_TEMP/policies"
+          cp sensor/policies/*.yaml sensor/experiments/*.yaml "$RUNNER_TEMP/policies/"
+      - name: Start sensor
+        run: POLICY_DIR="$RUNNER_TEMP/policies" sensor/start-sensor.sh
+      - name: Run the test cases
+        run: sensor/experiments/run-cases.sh
+      - name: Stop sensor
+        if: always()
+        run: sensor/stop-sensor.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: sensor-test
+          path: out/
+          if-no-files-found: error
