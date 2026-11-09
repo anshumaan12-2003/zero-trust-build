@@ -13,7 +13,7 @@ __pycache__/
 
 # Build evidence and downloaded workflow artifacts
 out/
-evidence/
+evidence*/
 
 # Terraform
 .terraform/
