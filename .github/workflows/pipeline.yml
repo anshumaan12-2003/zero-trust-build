@@ -1,0 +1,70 @@
+name: pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build in the sandbox with the sensor on
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the code
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start sensor
+        run: sensor/start-sensor.sh
+      - name: Run build in sandbox
+        run: sandbox/run-build.sh
+      - name: Stop sensor
+        if: always()
+        run: sensor/stop-sensor.sh
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence
+          path: out/
+          if-no-files-found: error
+
+  escape-test:
+    name: Try to escape the sandbox
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the code
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Make a copy of the app with a harmless escape script
+        run: |
+          cp -r app "$RUNNER_TEMP/escape-app"
+          cp sandbox/experiments/escape.js "$RUNNER_TEMP/escape-app/"
+          cd "$RUNNER_TEMP/escape-app"
+          npm pkg set scripts.postinstall="node escape.js"
+      - name: Start sensor
+        run: sensor/start-sensor.sh
+      - name: Run the escape build in the sandbox
+        run: APP_DIR="$RUNNER_TEMP/escape-app" sandbox/run-build.sh
+      - name: Stop sensor
+        if: always()
+        run: sensor/stop-sensor.sh
+      - name: Check that every attempt was blocked and recorded
+        run: sandbox/experiments/check-escape.sh
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: escape-evidence
+          path: out/
+          if-no-files-found: error
