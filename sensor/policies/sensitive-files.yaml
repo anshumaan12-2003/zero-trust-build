@@ -1,0 +1,29 @@
+# Reports reads of decoy credentials and of other processes' secrets.
+# Based on Tetragon's examples/quickstart/file_monitoring.yaml.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "sensitive-files"
+spec:
+  kprobes:
+  - call: "security_file_permission"
+    syscall: false
+    args:
+    - index: 0
+      type: "file"
+    - index: 1
+      type: "int"
+    selectors:
+    - matchArgs:
+      - index: 0
+        operator: "Postfix"
+        values:
+        - "/.aws/credentials"
+        - "/.ssh/id_rsa"
+        - "/.config/gh/hosts.yml"
+        - "/environ"
+    - matchArgs:
+      - index: 0
+        operator: "Postfix"
+        values:
+        - "/mem"
