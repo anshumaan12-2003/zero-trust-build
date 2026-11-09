@@ -25,3 +25,11 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Fixed by:**
 - **Learned (write this in your own words):**
 - **Next:** Week 2, GitHub Actions and Kubernetes basics.
+
+## 2026-11-09: Week 2
+
+- **Did:** added a CI workflow (tests, workflow linting, image push to GitHub's registry from `main`). Deployed the app to a kind cluster. Broke it four ways and practised a rollout and an undo. Details are in `docs/kubernetes-failures.md`.
+- **Broke:** zizmor's strict mode found 5 small issues: no job names, uncommented permissions, and no concurrency limit. Old pods also took 30 seconds to stop.
+- **Fixed by:** named the jobs, commented each permission, and added a concurrency group. Made the app handle `SIGTERM`, which cut shutdown from 30 seconds to 2.
+- **Learned (write this in your own words):**
+- **Next:** Week 3, run Tetragon on a GitHub runner.
