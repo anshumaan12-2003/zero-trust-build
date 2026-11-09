@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Build evidence and downloaded workflow artifacts
+out/
+evidence/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Never commit real secrets
+.env
+*.pem
+*.key
