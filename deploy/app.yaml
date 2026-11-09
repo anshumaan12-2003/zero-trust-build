@@ -1,0 +1,63 @@
+# The demo app on Kubernetes. The container settings match the
+# locking flags tested in Week 1: non-root, no capabilities, read-only.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ztb-app
+  labels:
+    app: ztb-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ztb-app
+  template:
+    metadata:
+      labels:
+        app: ztb-app
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: ztb-app:week1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ztb-app
+spec:
+  selector:
+    app: ztb-app
+  ports:
+    - port: 80
+      targetPort: 3000
