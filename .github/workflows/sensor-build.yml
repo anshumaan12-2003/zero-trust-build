@@ -1,0 +1,77 @@
+name: sensor-build
+
+on:
+  pull_request:
+    paths:
+      - "sensor/**"
+      - "app/**"
+      - ".github/workflows/sensor-build.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  record:
+    name: Record the demo build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the code
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Pull the build image first, so pulling doesn't skew the timings
+        run: docker pull -q node:22-slim
+      - name: Three builds without the sensor
+        run: for n in 1 2 3; do sensor/experiments/build-once.sh "plain-$n"; done
+      - name: Start sensor
+        run: sensor/start-sensor.sh
+      - name: Three builds with the sensor
+        run: for n in 1 2 3; do sensor/experiments/build-once.sh "watched-$n"; done
+      - name: Stop sensor
+        if: always()
+        run: sensor/stop-sensor.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: sensor-build
+          path: out/
+          if-no-files-found: error
+
+  kill-test:
+    name: Stop the sensor halfway through a build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the code
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start sensor
+        run: sensor/start-sensor.sh
+      - name: Build, and stop the sensor after 5 seconds
+        run: |
+          sensor/experiments/build-once.sh killed &
+          sleep 5
+          docker kill tetragon
+          wait
+      - name: Stop sensor
+        if: always()
+        run: sensor/stop-sensor.sh
+      - name: The end canary must be missing
+        run: |
+          if grep -q "ztb-canary-end-$(cat out/nonce.txt)" out/sensor/tetragon.log; then
+            echo "Unexpected: the end canary was recorded although the sensor was stopped."
+            exit 1
+          fi
+          echo "As expected, the end canary is missing, so the judge will fail this build."
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: kill-test
+          path: out/
+          if-no-files-found: error
