@@ -1,0 +1,28 @@
+# Rules for one build. The judge (Week 6) reads this file with Python's
+# built-in tomllib, so it needs no third-party packages.
+
+[network]
+# Week 5's proxy will allow only these domains.
+allowed_domains = ["registry.npmjs.org"]
+
+[processes]
+# Programs that should never run during this build.
+denied = ["*/curl", "*/wget", "*/nc", "*/ncat", "*/socat"]
+
+# Programs seen in every clean build recorded in Week 4 (run 42664568807).
+known = [
+  "/tmp/work/node_modules/.bin/tsc",
+  "/usr/bin/cp",
+  "/usr/bin/sh",
+  "/usr/local/bin/docker-entrypoint.sh",
+  "/usr/local/bin/node",
+  "/usr/local/bin/npm",
+]
+
+# What to do about a program not in the known list: "warn" or "fail".
+# Switch to "fail" once clean builds stay quiet (Week 9).
+unknown_action = "warn"
+
+[files]
+decoys = ["*/.aws/credentials", "*/.ssh/id_rsa", "*/.config/gh/hosts.yml"]
+process_secrets = ["*/environ", "*/mem"]

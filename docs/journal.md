@@ -43,3 +43,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** DNS lookups and refused `/proc/<pid>/mem` reads leave no event with the current policies.
 - **Learned (write this in your own words):**
 - **Next:** Week 4, run the demo build with the sensor on.
+
+## 2026-11-09: Week 4
+
+- **Did:** recorded three builds with the sensor and three without, and killed the sensor halfway through one build. Results are in `docs/week4-build-results.md`. Started `policy/build-policy.toml` and wrote decision record 001.
+- **Broke:** downloading the evidence failed with GitHub's "Egress is over the account limit" error.
+- **Fixed by:** waiting 20 seconds and retrying. It was a temporary GitHub storage problem.
+- **Found:** every build ran the same 6 programs. npm reached the registry through a different Cloudflare IP address each time, so the proxy must allow domains, not IP addresses.
+- **Learned (write this in your own words):**
+- **Next:** Week 5, the sandbox and the proxy.
