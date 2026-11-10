@@ -16,7 +16,7 @@ note = "Clean build. The baseline every other result is measured against."
 
 [B3]
 verdict = "pass"
-note = "A new ordinary dependency. Its unknown programs are a PROC-2 warning, not a failure, while unknown_action is 'warn'."
+note = "A new ordinary dependency. It is installed but runs no new program during the build, so the unknown-program rule (PROC-2, a failure since Week 10) stays quiet."
 
 [B4]
 verdict = "pass"

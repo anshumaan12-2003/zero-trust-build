@@ -8,6 +8,7 @@ The evidence folder is what the build job uploads:
   builds/sandbox.cid     the sandbox container's full ID
   proxy.ip               the proxy's address on the sandbox network
   dist.tar               the build output
+  sensor/metrics.prom    Tetragon's counters, saved just before it stopped
 """
 import argparse
 import fnmatch
@@ -140,6 +141,37 @@ def judge(events, proxy_lines, policy, nonce, container_id, proxy_ip):
     }
 
 
+def lost_events(metrics_text, counter_names):
+    """Fails the build if the sensor may have dropped events.
+
+    counter_names lists the Tetragon counters that count dropped events. If the
+    metrics are missing, or none of those counters is in them, the judge can't
+    tell, so it fails closed.
+    """
+    if not counter_names:
+        return []
+    if not metrics_text:
+        return [{"rule": "SENSOR-5", "severity": "fail",
+                 "detail": "Tetragon's metrics are missing, so lost events can't be ruled out"}]
+    totals = {}
+    for line in metrics_text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        name_and_labels, _, value = line.rpartition(" ")
+        name = name_and_labels.split("{")[0]
+        if name in counter_names:
+            try:
+                totals[name] = totals.get(name, 0) + float(value)
+            except ValueError:
+                totals[name] = float("inf")
+    if not totals:
+        return [{"rule": "SENSOR-5", "severity": "fail",
+                 "detail": "None of the lost-event counters is in Tetragon's metrics"}]
+    return [{"rule": "SENSOR-5", "severity": "fail",
+             "detail": f"The sensor lost events: {name} = {total:g}"}
+            for name, total in sorted(totals.items()) if total > 0]
+
+
 def read_text(path):
     """Missing small files become empty strings, so the rules above fail closed."""
     file = Path(path)
@@ -198,6 +230,11 @@ def main():
         read_text(evidence / "builds" / "sandbox.cid") or "missing-container-id",
         read_text(evidence / "proxy.ip"),
     )
+
+    for finding in lost_events(read_text(evidence / "sensor" / "metrics.prom"),
+                               policy.get("sensor", {}).get("lost_event_counters", [])):
+        report["verdict"] = "fail"
+        report["findings"].append(finding)
 
     if not dist.exists():
         report["verdict"] = "fail"

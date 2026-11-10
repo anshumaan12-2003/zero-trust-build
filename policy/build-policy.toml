@@ -23,9 +23,22 @@ known = [
 ]
 
 # What to do about a program not in the known list: "warn" or "fail".
-# Switch to "fail" once clean builds stay quiet (Week 9).
-unknown_action = "warn"
+# "fail" since Week 10: 20 clean builds on fresh runners raised no PROC-2
+# warning (measure.yml run 42798034833). A new build tool now needs a policy
+# change, reviewed like code, before it can run.
+unknown_action = "fail"
 
 [files]
 decoys = ["*/.aws/credentials", "*/.ssh/id_rsa", "*/.config/gh/hosts.yml"]
 process_secrets = ["*/environ", "*/mem"]
+
+[sensor]
+# Tetragon v1.8.0 counters for events the sensor dropped or never saw.
+# stop-sensor.sh saves them to sensor/metrics.prom. The judge fails the build
+# (SENSOR-5) if any is above zero, or if none is in the evidence.
+lost_event_counters = [
+  "tetragon_observer_ringbuf_events_lost_total",
+  "tetragon_observer_ringbuf_queue_events_lost_total",
+  "tetragon_missed_prog_probes_total",
+  "tetragon_missed_link_probes_total",
+]

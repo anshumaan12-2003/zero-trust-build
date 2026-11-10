@@ -1,0 +1,52 @@
+name: pages
+
+# Publishes the results page: site/index.html plus the committed
+# results/summary.json. Runs only on main, after the results are reviewed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'results/summary.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Assemble the page
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the page and the results
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Assemble
+        run: |
+          mkdir _site
+          cp site/index.html results/summary.json _site/
+          jq -e '.false_alarms and .build_time and .attack_lab' _site/summary.json > /dev/null
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site/
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write # publish the page
+      id-token: write # prove the deployment came from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

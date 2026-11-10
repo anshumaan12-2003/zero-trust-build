@@ -1,0 +1,17 @@
+{
+  "run": "clean-20",
+  "verdict": "pass",
+  "fail_rules": [],
+  "warnings": [],
+  "evidence_bytes": 6417867,
+  "sensor_log_bytes": 1048510,
+  "build_output_bytes": 2856960,
+  "sensor_events": 1059,
+  "metrics_saved": true,
+  "lost_or_missed": {
+    "tetragon_missed_link_probes_total": 0.0,
+    "tetragon_missed_prog_probes_total": 0.0,
+    "tetragon_observer_ringbuf_events_lost_total": 0.0,
+    "tetragon_observer_ringbuf_queue_events_lost_total": 0.0
+  }
+}

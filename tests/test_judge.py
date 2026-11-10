@@ -21,6 +21,15 @@ NONCE = "abc123"
 CID = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 SHORT = CID[:31]
 PROXY = "172.18.0.2"
+# What stop-sensor.sh saves from a sensor that dropped nothing. The Week 5
+# fixtures predate the metrics snapshot, so tests add this to them.
+CLEAN_METRICS = """# HELP tetragon_observer_ringbuf_events_lost_total Number of perf events Tetragon ringbuf lost.
+# TYPE tetragon_observer_ringbuf_events_lost_total counter
+tetragon_observer_ringbuf_events_lost_total 0
+tetragon_observer_ringbuf_queue_events_lost_total 0
+tetragon_missed_prog_probes_total{attach="security_socket_connect",policy="security-socket-connect"} 0
+tetragon_missed_link_probes_total 0
+"""
 
 
 def exec_event(binary, docker=SHORT, arguments=""):
@@ -108,8 +117,14 @@ class RulesTest(unittest.TestCase):
     def test_denied_program(self):
         self.assertIn("PROC-1", rules(run(CLEAN + [exec_event("/usr/bin/curl")])))
 
-    def test_unknown_program_only_warns(self):
+    def test_unknown_program_fails(self):
         report = run(CLEAN + [exec_event("/usr/bin/python3")])
+        self.assertIn("PROC-2", rules(report))
+        self.assertEqual(report["verdict"], "fail")
+
+    def test_unknown_program_only_warns_when_set_to_warn(self):
+        policy = {**POLICY, "processes": {**POLICY["processes"], "unknown_action": "warn"}}
+        report = run(CLEAN + [exec_event("/usr/bin/python3")], policy=policy)
         self.assertIn("PROC-2", rules(report))
         self.assertEqual(report["verdict"], "pass")
 
@@ -154,11 +169,13 @@ class RealEvidenceTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp)
 
-    def evidence(self, name, with_dist=True):
+    def evidence(self, name, with_dist=True, metrics=CLEAN_METRICS):
         folder = self.tmp / name
         shutil.copytree(FIXTURES / name, folder)
         if with_dist:
             (folder / "dist.tar").write_bytes(b"build output")
+        if metrics is not None:
+            (folder / "sensor" / "metrics.prom").write_text(metrics)
         return folder
 
     def test_clean_build_passes(self):
@@ -186,7 +203,8 @@ class RealEvidenceTest(unittest.TestCase):
         self.assertIn("SENSOR-1: The end canary is missing", result.stdout)
 
     def test_missing_files_fail_closed(self):
-        for name in ("nonce.txt", "builds/sandbox.cid", "proxy.ip", "proxy/access.log"):
+        for name in ("nonce.txt", "builds/sandbox.cid", "proxy.ip", "proxy/access.log",
+                     "sensor/metrics.prom"):
             with self.subTest(missing=name):
                 folder = self.evidence("week5-clean")
                 (folder / name).unlink()
@@ -199,6 +217,30 @@ class RealEvidenceTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("BUILD-1", result.stdout)
         self.assertIsNone(json.loads((output / "predicate.json").read_text())["ztb"]["distSha256"])
+
+    def test_lost_events_fail(self):
+        metrics = CLEAN_METRICS.replace("events_lost_total 0", "events_lost_total 12", 1)
+        result, output = run_cli(self.evidence("week5-clean", metrics=metrics))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("SENSOR-5: The sensor lost events: "
+                      "tetragon_observer_ringbuf_events_lost_total = 12", result.stdout)
+        self.assertEqual(rules(json.loads((output / "verdict.json").read_text())), {"SENSOR-5"})
+
+    def test_missed_probes_with_labels_are_added_up(self):
+        metrics = CLEAN_METRICS + 'tetragon_missed_prog_probes_total{attach="x",policy="y"} 3\n'
+        result, _ = run_cli(self.evidence("week5-clean", metrics=metrics))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("tetragon_missed_prog_probes_total = 3", result.stdout)
+
+    def test_metrics_without_the_counters_fail_closed(self):
+        result, _ = run_cli(self.evidence("week5-clean", metrics="other_metric_total 0\n"))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("None of the lost-event counters", result.stdout)
+
+    def test_missing_metrics_fail_closed(self):
+        result, _ = run_cli(self.evidence("week5-clean", metrics=None))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("SENSOR-5: Tetragon's metrics are missing", result.stdout)
 
     def test_stricter_policy_changes_the_verdict(self):
         policy = POLICY_PATH.read_text().replace('"*/socat"]', '"*/socat", "*/npm"]')
