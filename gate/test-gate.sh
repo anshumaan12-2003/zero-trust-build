@@ -75,9 +75,18 @@ mutate attestation-type "runtime-trace/v0.2" "runtime-trace/v9.9" \
   "no signed behaviour record"
 kubectl apply -f gate/require-attestation.yaml > /dev/null
 
+show_webhooks() {
+  echo "      webhooks $1:"
+  kubectl get validatingwebhookconfigurations \
+    -o jsonpath='{range .items[*]}{.metadata.name}{" "}{range .webhooks[*]}[{.name} {.failurePolicy}]{end}{"\n"}{end}' \
+    | grep -i kyverno | sed 's/^/        /'
+}
+
 # With the checker stopped, failurePolicy: Fail must refuse even the good image.
+show_webhooks "before stopping Kyverno"
 kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 > /dev/null
 kubectl wait -n kyverno --for=delete pod -l app.kubernetes.io/component=admission-controller --timeout=90s > /dev/null
+show_webhooks "after stopping Kyverno"
 if output="$(kubectl run checker-down --image="$GOOD" --restart=Never 2>&1)"; then
   echo "FAIL: checker-down: the image was admitted while Kyverno was stopped"
   failures=$((failures + 1))
