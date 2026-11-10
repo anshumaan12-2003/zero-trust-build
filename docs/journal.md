@@ -61,3 +61,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** a clean build talks only to the proxy and Docker's DNS. The escape test's direct connection, other domain and decoy read were all blocked or recorded.
 - **Learned (write this in your own words):**
 - **Next:** Week 6, the judge.
+
+## 2026-11-10: Week 6
+
+- **Did:** moved the judge into `ztb/judge.py`, added `ztb/learn.py`, and gave the judge its own job that never runs build code. Wrote 31 tests, 7 of them on real Week 5 evidence. Wrote decision record 002. Results are in `docs/week6-judge-results.md`.
+- **Broke:** the fixture script exited with code 141, because `head` closed the pipe early and `pipefail` turned jq's SIGPIPE into a failure.
+- **Fixed by:** letting jq stop after 20 events itself with `limit`.
+- **Found:** the start canary loop's `grep` carries the nonce, so the old judge could count it as the canary. Only an exact `echo` counts now.
+- **Learned (write this in your own words):**
+- **Next:** Week 7, sign the verdict and the image.

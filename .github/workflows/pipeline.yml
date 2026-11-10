@@ -37,6 +37,32 @@ jobs:
           path: out/
           if-no-files-found: error
 
+  # A fresh machine that never runs build code. It reads only the evidence.
+  judge:
+    name: Judge the build evidence
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the judge and the policy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: evidence
+          path: evidence/
+      - name: Judge
+        run: python3 ztb/judge.py --evidence evidence --policy policy/build-policy.toml --output report
+      - name: Upload verdict
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verdict
+          path: report/
+          if-no-files-found: error
+
   escape-test:
     name: Try to escape the sandbox
     runs-on: ubuntu-24.04
@@ -61,6 +87,13 @@ jobs:
         run: sensor/stop-sensor.sh
       - name: Check that every attempt was blocked and recorded
         run: sandbox/experiments/check-escape.sh
+      - name: Check that the judge fails the escape build for each attempt
+        run: |
+          if python3 ztb/judge.py --evidence out --policy policy/build-policy.toml --output out/report; then
+            echo "The judge passed a build that tried to escape." >&2
+            exit 1
+          fi
+          jq -e '[.findings[].rule] | sort == ["FILE-1", "NET-1", "NET-2"]' out/report/verdict.json
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
