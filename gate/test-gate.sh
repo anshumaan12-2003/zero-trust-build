@@ -52,4 +52,27 @@ else
   failures=$((failures + 1))
 fi
 
+# No real build with a failing verdict ever gets signed, so test the later
+# checks by breaking the policy instead. Each broken copy must refuse the good image.
+mutate() {
+  local name="$1" from="$2" to="$3" message="$4" output
+  sed "s|$from|$to|" gate/require-attestation.yaml | kubectl apply -f - > /dev/null
+  sleep 5
+  if output="$(kubectl run "$name" --image="$GOOD" --restart=Never --dry-run=server 2>&1)"; then
+    echo "FAIL: $name: the good image was admitted"
+    failures=$((failures + 1))
+  elif [[ "$output" == *"$message"* ]]; then
+    echo "PASS: $name: refused with \"$message\""
+  else
+    echo "FAIL: $name: refused for another reason: $output"
+    failures=$((failures + 1))
+  fi
+}
+
+mutate verdict-check "verdict == 'pass'" "verdict == 'not-a-verdict'" \
+  "does not say pass"
+mutate attestation-type "runtime-trace/v0.2" "runtime-trace/v9.9" \
+  "no signed behaviour record"
+kubectl apply -f gate/require-attestation.yaml > /dev/null
+
 exit "$failures"
