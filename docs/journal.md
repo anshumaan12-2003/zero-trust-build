@@ -115,3 +115,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** an unsigned image committed to Git never becomes a Deployment. But while Kyverno was scaled to 0, Argo CD's retry got the unsigned app running, and it stayed running after Kyverno came back. The new `ZTBGateDown` alert fired about 2 minutes after the scale to 0. Everything used about 2.6 GiB of memory.
 - **Learned (write this in your own words):**
 - **Next:** apply the Terraform on Azure once credit is set up, then Week 12, finishing.
+
+## 2026-11-10: Week 12
+
+- **Did:** rewrote the README in the order the roadmap asks for: the problem, a 2-minute demo linking real runs, a diagram, results, what it can't do, and how to run it. I added `secrets.yml`, which scans every commit with gitleaks, and drafted a blog post about the `tcp_connect` blind spot (`docs/blog-tcp-connect-blind-spot.md`).
+- **Broke:** nothing.
+- **Fixed by:** n/a.
+- **Found:** gitleaks found no secrets in any of the 36 commits with changes. The other 12 commits are merges with nothing of their own. Every script and policy in the repo is used, some only through a wildcard, so there was no dead code to remove.
+- **Learned (write this in your own words):**
+- **Next:** record the demo, rewrite the blog post in my own voice, practise the pitch and interview answers, then tag v1.0.0.
