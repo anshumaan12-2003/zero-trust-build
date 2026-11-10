@@ -70,3 +70,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** the start canary loop's `grep` carries the nonce, so the old judge could count it as the canary. Only an exact `echo` counts now.
 - **Learned (write this in your own words):**
 - **Next:** Week 7, sign the verdict and the image.
+
+## 2026-11-10: Week 7
+
+- **Did:** added the release job. It checks the judged hash, unpacks the build output safely, assembles the image with COPY only, smoke tests it, then signs it and attaches the behaviour record with cosign, keyless. Removed the old image job. Results are in `docs/week7-release-results.md`.
+- **Broke:** Docker Desktop wasn't running on the Mac, so I couldn't test the image locally.
+- **Fixed by:** adding a smoke test to the release job itself, so every release is tested before it's signed.
+- **Found:** a check that requires `main` refuses an image signed from a branch, because the certificate names the branch. The GHCR package is public, since verifying worked without logging in.
+- **Learned (write this in your own words):**
+- **Next:** Week 8, the Kubernetes gate.
