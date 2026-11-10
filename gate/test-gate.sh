@@ -75,4 +75,15 @@ mutate attestation-type "runtime-trace/v0.2" "runtime-trace/v9.9" \
   "no signed behaviour record"
 kubectl apply -f gate/require-attestation.yaml > /dev/null
 
+# With the checker stopped, failurePolicy: Fail must refuse even the good image.
+kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 > /dev/null
+kubectl wait -n kyverno --for=delete pod -l app.kubernetes.io/component=admission-controller --timeout=90s > /dev/null
+if output="$(kubectl run checker-down --image="$GOOD" --restart=Never 2>&1)"; then
+  echo "FAIL: checker-down: the image was admitted while Kyverno was stopped"
+  failures=$((failures + 1))
+else
+  echo "PASS: checker-down: refused while Kyverno was stopped"
+  echo "      $output" | cut -c1-200
+fi
+
 exit "$failures"
