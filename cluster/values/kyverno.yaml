@@ -1,0 +1,4 @@
+# Only the admission controller makes gate decisions, so only it is scraped.
+admissionController:
+  serviceMonitor:
+    enabled: true

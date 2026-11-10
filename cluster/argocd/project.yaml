@@ -1,0 +1,25 @@
+# What Argo CD may deploy for this project: only from this repo, only into
+# the ztb namespaces, and only namespaced Deployments and Services.
+# A bad commit to deploy/ can't create cluster roles or touch the gate.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ztb
+  namespace: argocd
+spec:
+  description: The Zero Trust Build demo app
+  sourceRepos:
+    - https://github.com/anshumaan12-2003/zero-trust-build.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: ztb
+    - server: https://kubernetes.default.svc
+      namespace: ztb-bad
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: Deployment
+    - group: ''
+      kind: Service

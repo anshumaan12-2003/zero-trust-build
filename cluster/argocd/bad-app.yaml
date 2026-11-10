@@ -1,0 +1,21 @@
+# A test only: what happens when Git asks for an image that never went
+# through the pipeline. Argo CD applies it, and the gate must refuse its pods.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ztb-bad
+  namespace: argocd
+spec:
+  project: ztb
+  source:
+    repoURL: https://github.com/anshumaan12-2003/zero-trust-build.git
+    targetRevision: REVISION
+    path: cluster/bad-deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ztb-bad
+  syncPolicy:
+    automated:
+      prune: true
+    syncOptions:
+      - CreateNamespace=true

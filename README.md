@@ -22,7 +22,7 @@ Code that might be poisoned never gets a key, and code that holds a key never ru
 
 ## Status
 
-Weeks 0–10 work end to end on GitHub's runners:
+Weeks 0–11 work end to end on GitHub's runners:
 
 1. **Sandbox** (Week 5): the build runs as a normal user, with no special powers and no route out except a proxy that allows only `registry.npmjs.org`.
 2. **Record** (Weeks 3–4): Tetragon watches the build from the kernel. Canaries prove it was running.
@@ -33,6 +33,7 @@ Weeks 0–10 work end to end on GitHub's runners:
 6. **Attack lab** (Week 9): 19 harmless, labelled scenarios run through the real sandbox, sensor and judge, with each verdict checked against an expectation written in advance. Of the build attacks, 6 are caught and 5 get through, each miss documented — DNS tunnelling, exfil through the allowed domain, an unreviewed output file, dormant runtime-only code, and a memory read the kernel refuses before the sensor sees it (`docs/week9-attack-lab-results.md`).
 
 7. **Measure and harden** (Week 10): the numbers below, a lost-events rule in the judge, unknown programs now fail the build, and a [threat model](docs/threat-model.md).
+8. **Real cluster** (Week 11): [Terraform](terraform/) for one k3s VM on Azure, checked but not yet applied. One script sets up any cluster with Prometheus and Grafana, Kyverno and the gate, and Argo CD deploying `deploy/` from Git. In CI on kind, an unsigned image from Git is refused at the Deployment, and an alert fires when Kyverno is switched off. While Kyverno was off, Argo CD's retry got the unsigned app running (`docs/week11-cluster-results.md`).
 
 ## Measured results
 
@@ -47,7 +48,7 @@ From `measure.yml` run [42798034833](https://github.com/anshumaan12-2003/zero-tr
 | Evidence per build | 6.5 MB (median of 20) |
 | Gate time per pod | +1.1 s (2.2 s on the first call) |
 
-Next: Weeks 11–12, a real cluster and finishing.
+Next: Week 12, finishing.
 
 ## Related work
 

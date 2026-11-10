@@ -1,0 +1,97 @@
+name: cluster
+
+# Week 11: checks the Terraform for the Azure VM without applying it, then
+# builds the same cluster setup on kind: monitoring, Kyverno and the gate,
+# and Argo CD deploying deploy/ from Git. Nothing here signs or publishes.
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - 'cluster/**'
+      - 'deploy/**'
+      - 'gate/**'
+      - '.github/workflows/cluster.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform:
+    name: Check the Terraform
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the Terraform
+    env:
+      TERRAFORM_VERSION: 1.16.7
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Terraform and check its checksum
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://releases.hashicorp.com/terraform/$TERRAFORM_VERSION"
+          curl -fsSLO "$base/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          curl -fsSLO "$base/terraform_${TERRAFORM_VERSION}_SHA256SUMS"
+          grep "linux_amd64.zip" "terraform_${TERRAFORM_VERSION}_SHA256SUMS" | sha256sum -c -
+          unzip -q "terraform_${TERRAFORM_VERSION}_linux_amd64.zip" terraform
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Format
+        run: terraform -chdir=terraform fmt -check -diff -recursive
+      - name: Validate
+        run: |
+          if [ -f terraform/.terraform.lock.hcl ]; then
+            terraform -chdir=terraform init -backend=false -input=false -lockfile=readonly
+          else
+            terraform -chdir=terraform init -backend=false -input=false
+          fi
+          terraform -chdir=terraform validate
+      - name: Lock provider checksums for Linux, macOS and Windows
+        run: |
+          terraform -chdir=terraform providers lock \
+            -platform=linux_amd64 -platform=darwin_arm64 -platform=darwin_amd64 -platform=windows_amd64
+          cat terraform/.terraform.lock.hcl
+          if git ls-files --error-unmatch terraform/.terraform.lock.hcl > /dev/null 2>&1; then
+            git diff --exit-code terraform/.terraform.lock.hcl
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: terraform-lock
+          path: terraform/.terraform.lock.hcl
+          include-hidden-files: true
+          if-no-files-found: error
+
+  kind:
+    name: Real cluster setup on kind
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the manifests and scripts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Create the cluster
+        run: kind create cluster --config gate/kind-config.yaml --wait 120s
+      - name: Install monitoring, the gate and Argo CD
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          start=$SECONDS
+          cluster/install.sh "$REVISION"
+          echo "Setup took $((SECONDS - start)) s"
+      - name: Check the cluster
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: cluster/check-cluster.sh "$REVISION"
+      - name: Show what went wrong
+        if: failure()
+        run: |
+          kubectl get pods -A
+          kubectl get applications -n argocd -o wide
+          kubectl get events -A --sort-by=.lastTimestamp | tail -40
+          kubectl logs -n kyverno deployment/kyverno-admission-controller --tail 40

@@ -1,0 +1,13 @@
+#cloud-config
+# Installs one pinned k3s release. Traefik is left out, since nothing here needs an ingress.
+package_update: true
+packages:
+  - curl
+runcmd:
+  - >-
+    curl -sfL "https://raw.githubusercontent.com/k3s-io/k3s/${k3s_version}/install.sh" -o /root/k3s-install.sh
+  - >-
+    INSTALL_K3S_VERSION="${k3s_version}"
+    INSTALL_K3S_EXEC="server --disable traefik --tls-san ${public_ip} --write-kubeconfig-mode 600"
+    sh /root/k3s-install.sh
+  - k3s kubectl wait --for=condition=Ready node --all --timeout=300s

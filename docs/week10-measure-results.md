@@ -15,6 +15,8 @@ Recorded on 2026-11-10. Run: `measure.yml` run 42798034833 on GitHub's `ubuntu-2
 
 These are small samples from one small app. They are reported as counts, not percentages.
 
+**Repeat run.** A second run, 42799088815, used the final judge with SENSOR-5 and unknown programs set to fail. It gave 0 of 20 false alarms and 0 of 20 runs with lost events. Build time was 3.75 s plain against 22.49 s secured, so +18.7 s. The gate added +0.9 s, and its first call took 1.8 s. Across both runs that is **0 false alarms in 40 clean builds**. The committed `results/` files hold the first run only.
+
 ## Build time
 
 | Part | Median |

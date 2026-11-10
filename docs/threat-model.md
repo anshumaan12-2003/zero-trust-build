@@ -42,6 +42,7 @@ The main rule: code that might be poisoned never gets a key, and code that holds
 | Lost sensor events | The judge reads Tetragon's lost-event counters from the evidence | Week 10 measurements |
 | Missing or swapped build output | The judge requires output, and the release job checks its hash against the judged one | Lab S3, Week 7 |
 | Images that skipped the pipeline | The gate requires a keyless signature from `pipeline.yml@refs/heads/main` | Week 8 gate test |
+| An unsigned image committed to `deploy/` | The gate refuses the Deployment itself, so Argo CD's sync fails and no pod is created | Week 11 cluster check |
 | A record signed by another branch or workflow | The certificate identity must match exactly | Week 8 gate test |
 | Moved tags | The gate checks and pins images by digest | Week 8 gate test |
 | A record that says fail | The gate reads the verdict out of the signed record | Week 8 mutation test |
@@ -69,8 +70,9 @@ These are measured, not guessed. Each is a scenario in `lab/` that the pipeline 
 
 ## Known gaps in the controls themselves
 
-- **Kyverno scaled to 0 opens the gate.** Kyverno deletes its own webhooks when its deployment is scaled to 0 or deleted, so `failurePolicy: Fail` no longer applies. A crash keeps the webhooks and refuses everything. Only cluster admins can scale Kyverno today. A `ValidatingAdmissionPolicy` that refuses scaling Kyverno to 0, plus an alert when its webhooks disappear, would close this (`docs/week8-gate-results.md`).
+- **Kyverno scaled to 0 opens the gate.** Kyverno deletes its own webhooks when its deployment is scaled to 0 or deleted, so `failurePolicy: Fail` no longer applies. A crash keeps the webhooks and refuses everything. Only cluster admins can scale Kyverno today. In Week 11 this happened without anyone creating a pod by hand: Argo CD kept retrying a refused unsigned Deployment, and once Kyverno was off, a retry got the unsigned app running. It kept running after Kyverno came back. The `ZTBGateDown` alert now fires about 2 minutes after the scale to 0, so the gap is detected but not prevented. A `ValidatingAdmissionPolicy` that refuses scaling Kyverno to 0 would close it (`docs/week8-gate-results.md`, `docs/week11-cluster-results.md`).
 - **Unknown programs.** Until Week 10, a program never seen in clean builds was only a warning (PROC-2). See `docs/week10-measure-results.md` for the switch to fail.
+- **Argo CD can deploy whatever is on `main`.** Its project (`cluster/argocd/project.yaml`) limits it to Deployments and Services in the app namespaces from this repo, so a bad commit can't create cluster roles or change the gate. The gate still checks every image it deploys.
 - **Third-party actions.** Every action is pinned to a full commit SHA, and zizmor and actionlint check the workflows. A pinned action is still trusted code.
 
 ## Assumptions

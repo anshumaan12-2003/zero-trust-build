@@ -1,0 +1,8 @@
+# Argo CD with only what a pull-based deploy needs: no SSO, no notifications,
+# no ApplicationSets. Reach the UI with kubectl port-forward.
+dex:
+  enabled: false
+notifications:
+  enabled: false
+applicationSet:
+  enabled: false
