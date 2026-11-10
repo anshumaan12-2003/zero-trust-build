@@ -1,6 +1,14 @@
 # Week 11: a real cluster
 
-PLACEHOLDER_RUNLINE
+Recorded on 2026-11-10. Final run: `cluster.yml` run 42837282910 on GitHub's `ubuntu-24.04` runners. It took five runs to get there, and each failure taught something:
+
+| Run | Result | What it showed |
+|---|---|---|
+| 42831369640 | 1 check failed | The gate refuses the Deployment, not its pods (see "What the first run got wrong") |
+| 42833226386 | All passed | The fixed check |
+| 42834459913 | 1 check failed | The dashboard missed decisions made before the first scrape (see "What the dashboard counts") |
+| 42836049368 | 1 check failed | The refusal alert has the same blind spot, and was checked too early |
+| 42837282910 | All passed | Final |
 
 ## What was built
 
@@ -25,9 +33,9 @@ PLACEHOLDER_RUNLINE
 | Every gate panel on the dashboard has data | PASS |
 | Grafana loaded the dashboard | PASS |
 | `ZTBUnprovenImageRefused` fires after a refusal | PASS |
-| `ZTBGateDown` fires when Kyverno is scaled to 0 | PASS, after 120 s (141 s in the first run) |
+| `ZTBGateDown` fires when Kyverno is scaled to 0 | PASS, after 120 to 141 s across the five runs |
 
-Setup took 114 s on a fresh kind cluster.
+Setup took 114 to 125 s on a fresh kind cluster.
 
 ## What the first run got wrong
 
@@ -45,10 +53,10 @@ In Week 8 the gap was a single test: scale Kyverno to 0, and a pod created by ha
 
 1. Argo CD kept retrying the refused sync of the unsigned Deployment.
 2. Kyverno was scaled to 0, and it removed its own webhooks.
-3. Argo CD's next retry got through, and **the unsigned app was running 120 s later**.
+3. Argo CD's next retry got through, and **the unsigned app was running 120 to 130 s later**, in all five runs.
 4. Kyverno was scaled back to 1. **The unsigned pod kept running**, because admission only checks new pods.
 
-**What helps now:** `ZTBGateDown` fired 120 s after the scale to 0, at about the same time the unsigned pod started. It doesn't prevent anything, but someone gets told.
+**What helps now:** `ZTBGateDown` fired 120 to 141 s after the scale to 0, at about the same time the unsigned pod started. It doesn't prevent anything, but someone gets told.
 
 **What would close it:**
 - A `ValidatingAdmissionPolicy`, built into Kubernetes, that refuses scaling Kyverno's admission controller to 0. It doesn't depend on Kyverno running.
@@ -64,6 +72,8 @@ Kyverno's metric `kyverno_image_validating_policy_results_total` is labelled by 
 So the panels say "Allowed by the gate" and "Refused by the gate", not "app pods". The refusal table splits by namespace and kind.
 
 **Counts are a lower bound.** Prometheus's `increase()` can't count decisions made before it first scraped a series. A third CI run, 42834459913, showed this: every "allowed" decision happened during setup, before Prometheus picked up Kyverno, so the panel read 0 even though the app was running. The check now keeps making fresh dry-run decisions while it waits for the panels. On a long-running cluster this only affects the first scrape, but a dashboard total is never the full history.
+
+**The alert had the same blind spot.** `ZTBUnprovenImageRefused` first used only `increase()`, so the first refusal in a new namespace, which creates a new series, couldn't fire it. Run 42836049368 showed the alert still inactive after the refusals. It now also compares the total refusals with the total 10 minutes earlier, which does notice a new series. The check also waits up to 90 s for the rule to be evaluated.
 
 ## Memory
 
