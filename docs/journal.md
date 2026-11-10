@@ -79,3 +79,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** a check that requires `main` refuses an image signed from a branch, because the certificate names the branch. The GHCR package is public, since verifying worked without logging in.
 - **Learned (write this in your own words):**
 - **Next:** Week 8, the Kubernetes gate.
+
+## 2026-11-10: Week 8
+
+- **Did:** wrote the Kyverno gate and a test workflow that tries 8 cases on kind. Results are in `docs/week8-gate-results.md`.
+- **Broke:** quay.io returned 504 and 502 errors, so the first release from `main` couldn't start the sensor. A re-run then judged an empty evidence artifact left by a failed attempt.
+- **Fixed by:** pinning Tetragon by digest and retrying the pull, and naming artifacts with the run attempt.
+- **Found:** Kyverno reads cosign v3 bundles. Kyverno deletes its own webhooks when scaled to 0, so the gate opens. A crash keeps the webhooks, so the gate stays shut. My first two "Kyverno is down" tests were wrong, and printing the webhook configurations showed why.
+- **Learned (write this in your own words):**
+- **Next:** Week 9, the attack lab.
