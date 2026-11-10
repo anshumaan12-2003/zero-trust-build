@@ -1,5 +1,5 @@
-# Week 1 Dockerfile: a normal multi-stage build.
-# Week 5 replaces it with a COPY-only file, so no code runs while the image is assembled.
+# For local use only, such as the kind drills in Week 2. It runs npm while
+# building, so it is never used for release. Releases use release/Dockerfile.
 
 # Stage 1: install everything, including TypeScript, and compile.
 FROM node:22-slim AS build
