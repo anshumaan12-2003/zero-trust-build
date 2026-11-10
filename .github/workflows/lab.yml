@@ -4,6 +4,7 @@ name: attack-lab
 # and judge, and check the verdict against what lab/expected.toml predicts.
 # Started by hand, or on a change to lab/. One job per scenario, so a miss in
 # one never hides a miss in another. The release job is never involved.
+# B6 (the clean build repeated) is measure.yml's 20-run false-alarm matrix.
 
 on:
   pull_request:
@@ -11,11 +12,6 @@ on:
       - 'lab/**'
       - '.github/workflows/lab.yml'
   workflow_dispatch:
-    inputs:
-      flakiness_runs:
-        description: 'How many times to repeat the clean build for the false-alarm rate'
-        required: false
-        default: '20'
 
 permissions: {}
 
@@ -71,34 +67,3 @@ jobs:
           name: lab-${{ matrix.scenario }}-${{ github.run_attempt }}
           path: out/
           if-no-files-found: error
-
-  # B6: the clean build repeated, to measure how often it raises a false alarm.
-  # Manual only, because it is slow.
-  flakiness:
-    name: Clean-build false-alarm rate
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read # read the code
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Repeat the clean build
-        env:
-          RUNS: ${{ inputs.flakiness_runs }}
-        run: |
-          runs="${RUNS:-20}"
-          fail=0
-          for i in $(seq 1 "$runs"); do
-            lab/run-scenario.sh B1 > /dev/null 2>&1 || true
-            if python3 lab/assert.py B1 out/report/verdict.json lab/expected.toml > /dev/null 2>&1; then
-              echo "run $i: pass"
-            else
-              echo "run $i: FALSE ALARM"
-              fail=$((fail + 1))
-            fi
-          done
-          echo "False alarms: $fail / $runs"
-          echo "False alarms: $fail / $runs" >> "$GITHUB_STEP_SUMMARY"
-          test "$fail" -eq 0

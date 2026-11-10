@@ -1,0 +1,134 @@
+name: measure
+
+# Week 10: turns claims into numbers. Measures added build time, the clean-build
+# false-alarm rate, evidence size, lost sensor events and gate decision time,
+# and writes them to results/summary.json. Nothing here signs or publishes.
+
+on:
+  pull_request:
+    paths:
+      - 'measure/**'
+      - '.github/workflows/measure.yml'
+  workflow_dispatch:
+    inputs:
+      timing_runs:
+        description: 'Plain and secured builds to time (each)'
+        required: false
+        default: '10'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-time:
+    name: Time plain and secured builds
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the code
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Time the builds
+        env:
+          RUNS: ${{ inputs.timing_runs || '10' }}
+        run: |
+          mkdir -p raw
+          measure/time-builds.sh "$RUNS" raw/build-times.csv
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: measure-build-time-${{ github.run_attempt }}
+          path: raw/
+          if-no-files-found: error
+
+  # Each clean build gets its own fresh runner, as a real pipeline run would.
+  clean-build:
+    name: Clean build ${{ matrix.run }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the code
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and judge the unchanged app
+        run: lab/run-scenario.sh B1
+      - name: Record the result
+        env:
+          RUN: ${{ matrix.run }}
+        run: |
+          mkdir -p raw
+          python3 measure/record-run.py out "clean-$RUN" "raw/clean-$RUN.json"
+          grep -E 'lost|missed' out/sensor/metrics.prom | grep -v '^#' || echo "No lost or missed counters in the metrics."
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: measure-clean-${{ matrix.run }}-${{ github.run_attempt }}
+          path: raw/
+          if-no-files-found: error
+
+  gate-time:
+    name: Time the gate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the policy
+    env:
+      KYVERNO_CHART: 3.9.2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Create the cluster
+        run: kind create cluster --config gate/kind-config.yaml --wait 120s
+      - name: Install Kyverno
+        run: |
+          helm repo add kyverno https://kyverno.github.io/kyverno/
+          helm install kyverno kyverno/kyverno --namespace kyverno --create-namespace \
+            --version "$KYVERNO_CHART" --wait --timeout 5m
+      - name: Time pod creation with and without the gate
+        run: |
+          mkdir -p raw
+          measure/time-gate.sh "$(cat gate/good-image.txt)" 10 raw/gate-times.csv
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: measure-gate-time-${{ github.run_attempt }}
+          path: raw/
+          if-no-files-found: error
+
+  summarize:
+    name: Write results/summary.json
+    needs: [build-time, clean-build, gate-time]
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the lab expectations
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: measure-*-${{ github.run_attempt }}
+          merge-multiple: true
+          path: results/raw/
+      - name: Summarize
+        run: |
+          python3 measure/summarize.py results/raw results/summary.json
+          jq -r '"| Measure | Result |", "|---|---|",
+            "| Added build time (median of \(.build_time.runs_each)) | \(.build_time.added_s) s (\(.build_time.plain_build_s) s plain, \(.build_time.secured_total_s) s secured) |",
+            "| False alarms | \(.false_alarms.summary) |",
+            "| Evidence size (median) | \(.evidence.median_bytes) bytes |",
+            "| Runs with lost or missed events | \(.events_lost.runs_with_any_loss) of \(.events_lost.runs_with_metrics) |",
+            "| Gate time added (median) | \(.gate_time.added_median_s) s |",
+            "| Attack lab | \(.attack_lab.summary) |"' results/summary.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: results-${{ github.run_attempt }}
+          path: results/
+          if-no-files-found: error

@@ -20,15 +20,19 @@ for attempt in 1 2 3 4; do
   sleep $((attempt * 15))
 done
 
+# The metrics port is published on loopback only. stop-sensor.sh saves a
+# snapshot into the evidence so the judge can check for lost events.
 docker run --name tetragon --rm -d \
   --pid=host --cgroupns=host --privileged \
+  -p 127.0.0.1:2112:2112 \
   -v /sys/kernel/btf/vmlinux:/var/lib/tetragon/btf \
   -v "$POLICY_DIR:/etc/tetragon/tetragon.tp.d:ro" \
   -v "$PWD/out/sensor:/var/log/tetragon" \
   "$TETRAGON_IMAGE" \
   /usr/bin/tetragon \
   --export-filename /var/log/tetragon/tetragon.log \
-  --export-file-max-size-mb 1024
+  --export-file-max-size-mb 1024 \
+  --metrics-server :2112
 
 # The canary is a harmless command that carries a secret random value.
 # Seeing it in the log proves the sensor is recording.
