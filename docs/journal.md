@@ -106,3 +106,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** 0 of 20 clean builds failed, and 0 lost events. The secured build adds 18 s to a 3 s build, and the earlier sensor-only test suggests most of that is sandbox setup, not the sensor. The gate adds about 1.1 s per pod. The roadmap's name for the lost-events counter is right for Tetragon v1.8.0, but older docs use a name this version doesn't export.
 - **Learned (write this in your own words):**
 - **Next:** Weeks 11–12, a real cluster and finishing.
+
+## 2026-11-10: Week 11
+
+- **Did:** wrote Terraform for one k3s VM on Azure, with a budget alert and SSH and the Kubernetes API open to one address only. I also wrote `cluster/install.sh`, which sets up Prometheus and Grafana, Kyverno and the gate, and Argo CD on any cluster, and `cluster/check-cluster.sh`. `cluster.yml` validates the Terraform and runs both scripts on kind. Results are in `docs/week11-cluster-results.md`.
+- **Broke:** the first run expected the gate to refuse the unsigned app's pods, but no pods were ever created. The lock-file upload also failed, because upload-artifact skips dotfiles.
+- **Fixed by:** checking Argo CD's sync result instead, since Kyverno refuses the Deployment itself. I also set `include-hidden-files` and committed the lock file.
+- **Found:** an unsigned image committed to Git never becomes a Deployment. But while Kyverno was scaled to 0, Argo CD's retry got the unsigned app running, and it stayed running after Kyverno came back. The new `ZTBGateDown` alert fired about 2 minutes after the scale to 0. Everything used about 2.6 GiB of memory.
+- **Learned (write this in your own words):**
+- **Next:** apply the Terraform on Azure once credit is set up, then Week 12, finishing.

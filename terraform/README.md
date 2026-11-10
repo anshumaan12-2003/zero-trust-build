@@ -5,7 +5,7 @@ One small Ubuntu VM running k3s, reachable only from your own IP address. CI che
 ## Before you create anything
 
 1. **Set a subscription budget in the portal** (Cost Management, then Budgets), with an email alert at a low amount. The budget in `main.tf` covers only this resource group, so it can't catch anything created elsewhere.
-2. **Check the price.** The default `Standard_B2ms` (2 CPUs, 8 GB) costs a few US cents an hour. Check the [Azure pricing calculator](https://azure.microsoft.com/pricing/calculator/) for your region. The public IP and disk cost a little too, even while the VM is stopped.
+2. **Check the price.** The default `Standard_B2ms` (2 CPUs, 8 GB) is charged for every hour it exists. Check the [Azure pricing calculator](https://azure.microsoft.com/pricing/calculator/) for your region. The public IP and disk cost a little too, even while the VM is stopped.
 3. Copy `terraform.tfvars.example` to `terraform.tfvars` and fill it in. Git ignores `*.tfvars`.
 
 ## One session

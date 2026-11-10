@@ -36,7 +36,7 @@ variable "location" {
 }
 
 variable "vm_size" {
-  description = "k3s, Kyverno, Argo CD and Prometheus need about 6 GB together, so the default has 8 GB."
+  description = "Kyverno, Argo CD, monitoring and the app used about 2.6 GiB on kind in CI. 8 GB leaves room for k3s, the OS and growth."
   type        = string
   default     = "Standard_B2ms"
 }
