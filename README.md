@@ -22,7 +22,14 @@ Code that might be poisoned never gets a key, and code that holds a key never ru
 
 ## Status
 
-Week 0: setting up. Nothing works yet.
+Weeks 0–7 work end to end on GitHub's runners:
+
+1. **Sandbox** (Week 5): the build runs as a normal user, with no special powers and no route out except a proxy that allows only `registry.npmjs.org`.
+2. **Record** (Weeks 3–4): Tetragon watches the build from the kernel. Canaries prove it was running.
+3. **Judge** (Week 6): `ztb/judge.py` checks the evidence against `policy/build-policy.toml`, on a machine that never runs build code.
+4. **Seal** (Week 7): only after a pass, a separate job assembles the image with COPY only, signs it with cosign (no stored keys), and attaches the behaviour record as an in-toto attestation.
+
+Next: the Kubernetes gate (Week 8), which refuses images without a passing attestation from `main`.
 
 ## Related work
 

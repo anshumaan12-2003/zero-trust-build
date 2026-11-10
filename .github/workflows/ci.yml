@@ -9,7 +9,7 @@ on:
 permissions: {}
 
 # A newer push to the same pull request cancels the older run.
-# Runs on main are never cancelled, so every merged commit gets an image.
+# Runs on main are never cancelled. Images are built and signed by pipeline.yml.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -56,26 +56,3 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
       - name: zizmor
         run: pipx run zizmor==1.32.0 --offline --persona=pedantic .github/workflows
-
-  image:
-    name: Build and push the image
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read # read the code
-      packages: write # push the image to GitHub's container registry
-    env:
-      IMAGE: ghcr.io/anshumaan12-2003/zero-trust-build-app
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Build and push the image
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker build -t "$IMAGE:$GITHUB_SHA" app
-          docker push "$IMAGE:$GITHUB_SHA"
-          docker logout ghcr.io
