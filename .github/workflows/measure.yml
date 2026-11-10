@@ -29,7 +29,7 @@ jobs:
     permissions:
       contents: read # read the code
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Time the builds
@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p raw
           measure/time-builds.sh "$RUNS" raw/build-times.csv
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: measure-build-time-${{ github.run_attempt }}
           path: raw/
@@ -55,7 +55,7 @@ jobs:
       matrix:
         run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Build and judge the unchanged app
@@ -67,7 +67,7 @@ jobs:
           mkdir -p raw
           python3 measure/record-run.py out "clean-$RUN" "raw/clean-$RUN.json"
           grep -E 'lost|missed' out/sensor/metrics.prom | grep -v '^#' || echo "No lost or missed counters in the metrics."
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: measure-clean-${{ matrix.run }}-${{ github.run_attempt }}
           path: raw/
@@ -81,7 +81,7 @@ jobs:
     env:
       KYVERNO_CHART: 3.9.2
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Create the cluster
@@ -95,7 +95,7 @@ jobs:
         run: |
           mkdir -p raw
           measure/time-gate.sh "$(cat gate/good-image.txt)" 10 raw/gate-times.csv
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: measure-gate-time-${{ github.run_attempt }}
           path: raw/
@@ -109,10 +109,10 @@ jobs:
     permissions:
       contents: read # read the lab expectations
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@v8.0.2
         with:
           pattern: measure-*-${{ github.run_attempt }}
           merge-multiple: true
@@ -127,7 +127,7 @@ jobs:
             "| Runs with lost or missed events | \(.events_lost.runs_with_any_loss) of \(.events_lost.runs_with_metrics) |",
             "| Gate time added (median) | \(.gate_time.added_median_s) s |",
             "| Attack lab | \(.attack_lab.summary) |"' results/summary.json >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: results-${{ github.run_attempt }}
           path: results/
