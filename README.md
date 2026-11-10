@@ -22,7 +22,7 @@ Code that might be poisoned never gets a key, and code that holds a key never ru
 
 ## Status
 
-Weeks 0–8 work end to end on GitHub's runners:
+Weeks 0–9 work end to end on GitHub's runners:
 
 1. **Sandbox** (Week 5): the build runs as a normal user, with no special powers and no route out except a proxy that allows only `registry.npmjs.org`.
 2. **Record** (Weeks 3–4): Tetragon watches the build from the kernel. Canaries prove it was running.
@@ -30,8 +30,9 @@ Weeks 0–8 work end to end on GitHub's runners:
 4. **Seal** (Week 7): only after a pass, a separate job assembles the image with COPY only, signs it with cosign (no stored keys), and attaches the behaviour record as an in-toto attestation.
 
 5. **Gate** (Week 8): Kyverno admits the app image only with a signature and a passing behaviour record from `main`. Tested on kind with 8 cases. Known gap: scaling Kyverno to 0 removes its webhooks and opens the gate (`docs/week8-gate-results.md`).
+6. **Attack lab** (Week 9): 19 harmless, labelled scenarios run through the real sandbox, sensor and judge, with each verdict checked against an expectation written in advance. Of the build attacks, 6 are caught and 5 get through, each miss documented — DNS tunnelling, exfil through the allowed domain, an unreviewed output file, dormant runtime-only code, and a memory read the kernel refuses before the sensor sees it (`docs/week9-attack-lab-results.md`).
 
-Next: the attack lab (Week 9).
+Next: Week 10 — measure the false-alarm rate, added build time and evidence size, and switch the unknown-program rule from warn to fail.
 
 ## Related work
 
