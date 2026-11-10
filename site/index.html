@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zero Trust Build: measured results</title>
+<meta name="description" content="Measured results for the Zero Trust Build Pipeline: build overhead, false alarms, lost events, gate time and the attack lab.">
+<style>
+  :root {
+    --bg: #fbfaf8; --fg: #1d1c1a; --muted: #66625c; --line: #e4e0da;
+    --card: #ffffff; --good: #1f7a4d; --warn: #9a5b00; --accent: #2b59c3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151413; --fg: #edeae5; --muted: #a39e96; --line: #2f2d2a;
+      --card: #1d1c1a; --good: #5cc28f; --warn: #e0a54a; --accent: #8fb0ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.15rem; margin: 40px 0 12px; }
+  p.lede { color: var(--muted); margin: 0 0 24px; max-width: 62ch; }
+  a { color: var(--accent); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .tile .label { color: var(--muted); font-size: .85rem; }
+  .tile .value { font-size: 1.6rem; font-weight: 650; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .tile .detail { color: var(--muted); font-size: .85rem; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: .85rem; }
+  .chip.good { color: var(--good); border-color: currentColor; }
+  .chip.warn { color: var(--warn); border-color: currentColor; }
+  footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
+  #error { color: var(--warn); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Zero Trust Build: measured results</h1>
+  <p class="lede">Numbers from real runs on GitHub's hosted runners. Small samples are shown as counts. Each number links back to the run that produced it.</p>
+  <p id="error" hidden></p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Build time</h2>
+  <div class="table-wrap"><table id="build"></table></div>
+
+  <h2>Attack lab</h2>
+  <p id="lab-summary"></p>
+  <div class="table-wrap"><table id="lab"></table></div>
+
+  <h2>Gate decision time</h2>
+  <div class="table-wrap"><table id="gate"></table></div>
+
+  <footer>
+    <p id="source"></p>
+    <p>Raw data: <a href="summary.json">summary.json</a>. Source and method: <a href="https://github.com/anshumaan12-2003/zero-trust-build">github.com/anshumaan12-2003/zero-trust-build</a>.</p>
+  </footer>
+</main>
+<script>
+  const el = (tag, attrs = {}, text) => {
+    const node = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const seconds = (v) => (v === null || v === undefined ? "n/a" : `${v} s`);
+  const kb = (v) => (v === null || v === undefined ? "n/a" : `${Math.round(v / 1024).toLocaleString()} KB`);
+
+  function rows(table, header, data) {
+    const head = el("tr");
+    header.forEach((h) => head.appendChild(el("th", {}, h)));
+    table.appendChild(head);
+    data.forEach((cells) => {
+      const tr = el("tr");
+      cells.forEach((c, i) => tr.appendChild(el("td", i > 0 ? { class: "num" } : {}, String(c))));
+      table.appendChild(tr);
+    });
+  }
+
+  function chips(list, kind) {
+    const wrap = el("div", { class: "chips" });
+    list.forEach((id) => wrap.appendChild(el("span", { class: `chip ${kind}` }, id)));
+    return wrap;
+  }
+
+  function render(s) {
+    const b = s.build_time, f = s.false_alarms, e = s.evidence, l = s.events_lost, g = s.gate_time, a = s.attack_lab;
+    const tiles = [
+      ["Added build time", seconds(b.added_s), `median of ${b.runs_each} each`],
+      ["False alarms", `${f.failed} of ${f.clean_runs}`, "clean builds that failed"],
+      ["Build attacks caught", `${a.caught.length} of ${a.build_attacks}`, "each miss documented"],
+      ["Runs with lost events", `${l.runs_with_any_loss} of ${l.runs_with_metrics}`, "from Tetragon's counters"],
+      ["Evidence per build", kb(e.median_bytes), `median, ${Math.round(e.median_sensor_events).toLocaleString()} events`],
+      ["Gate time added", seconds(g.added_median_s), `median of ${g.runs_each - 1} warm calls`],
+    ];
+    const box = document.getElementById("tiles");
+    tiles.forEach(([label, value, detail]) => {
+      const t = el("div", { class: "tile" });
+      t.append(el("div", { class: "label" }, label), el("div", { class: "value" }, value), el("div", { class: "detail" }, detail));
+      box.appendChild(t);
+    });
+
+    rows(document.getElementById("build"), ["Part", "Median"], [
+      ["Plain build", seconds(b.plain_build_s)],
+      ["Sensor start", seconds(b.secured_sensor_start_s)],
+      ["Sandboxed build, sensor on", seconds(b.secured_build_s)],
+      ["Sensor stop", seconds(b.secured_sensor_stop_s)],
+      ["Secured total", seconds(b.secured_total_s)],
+    ]);
+    document.getElementById("build").insertAdjacentElement("afterend", el("p", { class: "lede" }, b.method));
+
+    document.getElementById("lab-summary").textContent = a.summary;
+    const lab = document.getElementById("lab");
+    [["Caught", a.caught, "good"], ["Not caught", a.not_caught, "warn"],
+     ["Tampering caught", a.tampering_caught, "good"], ["Clean builds passing", a.clean_builds_passing, "good"]]
+      .forEach(([label, list, kind]) => {
+        const tr = el("tr");
+        const cell = el("td");
+        cell.appendChild(chips(list, kind));
+        tr.append(el("th", {}, label), cell);
+        lab.appendChild(tr);
+      });
+
+    rows(document.getElementById("gate"), ["Call", "Time"], [
+      ["No image policy (median)", seconds(g.no_policy_median_s)],
+      ["Gate, first call", seconds(g.gated_first_call_s)],
+      ["Gate, later calls (median)", seconds(g.gated_median_after_first_s)],
+    ]);
+    document.getElementById("gate").insertAdjacentElement("afterend", el("p", { class: "lede" }, g.method));
+
+    const source = document.getElementById("source");
+    source.append(`Recorded ${s.recorded} on ${s.runner}. `);
+    source.appendChild(el("a", { href: s.source_run }, "Measurement run"));
+  }
+
+  fetch("summary.json")
+    .then((r) => { if (!r.ok) throw new Error(`summary.json: HTTP ${r.status}`); return r.json(); })
+    .then(render)
+    .catch((err) => {
+      const box = document.getElementById("error");
+      box.hidden = false;
+      box.textContent = `Could not load the results (${err.message}).`;
+    });
+</script>
+</body>
+</html>
