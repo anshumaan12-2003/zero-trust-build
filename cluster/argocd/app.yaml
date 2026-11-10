@@ -1,0 +1,22 @@
+# Argo CD pulls deploy/ from the repo and keeps the cluster matching it.
+# cluster/install.sh replaces REVISION with a branch or commit.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ztb-app
+  namespace: argocd
+spec:
+  project: ztb
+  source:
+    repoURL: https://github.com/anshumaan12-2003/zero-trust-build.git
+    targetRevision: REVISION
+    path: deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ztb
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

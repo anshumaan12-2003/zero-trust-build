@@ -1,5 +1,7 @@
-# The demo app on Kubernetes. The container settings match the
-# locking flags tested in Week 1: non-root, no capabilities, read-only.
+# The demo app on Kubernetes. Argo CD syncs this folder (cluster/argocd/app.yaml).
+# The container settings match the locking flags tested in Week 1: non-root,
+# no capabilities, read-only. The image is pinned by digest to a build signed
+# by pipeline.yml on main, the same one as gate/good-image.txt.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: app
-          image: ztb-app:week1
+          image: ghcr.io/anshumaan12-2003/zero-trust-build-app@sha256:d5cd49a905893b013aaf5904ccf07260c7b3a6cfc2a2c9bc2ce49c08673a3a3a
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

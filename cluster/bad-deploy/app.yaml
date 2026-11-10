@@ -1,0 +1,32 @@
+# The app image pushed by the old ci.yml image job. It was never signed,
+# so the gate must refuse every pod this Deployment asks for.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ztb-unsigned
+  labels:
+    app: ztb-unsigned
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ztb-unsigned
+  template:
+    metadata:
+      labels:
+        app: ztb-unsigned
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: ghcr.io/anshumaan12-2003/zero-trust-build-app:c482e9df61b4f6a1107fe809ef5f957360c287b5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

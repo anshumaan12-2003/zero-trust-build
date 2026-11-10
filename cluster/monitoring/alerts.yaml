@@ -1,0 +1,30 @@
+# Alerts for the gate. GateDown covers the known gap from Week 8: scaling
+# Kyverno to 0 removes its webhooks and opens the gate. This can't stop that,
+# but it makes sure someone hears about it.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ztb-gate
+  namespace: monitoring
+spec:
+  groups:
+    - name: ztb-gate
+      rules:
+        - alert: ZTBGateDown
+          expr: absent(up{namespace="kyverno", service="kyverno-svc-metrics"} == 1)
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: No Kyverno admission controller is up
+            description: >-
+              If Kyverno was scaled to 0 or deleted, it removed its own webhooks
+              and unsigned images can run. If it crashed, every app pod is refused.
+        - alert: ZTBUnprovenImageRefused
+          expr: >-
+            sum(increase(kyverno_image_validating_policy_results_total{policy_name="require-build-attestation", result="fail"}[10m])) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: The gate refused an image without a passing behaviour record
+            description: Someone or something tried to run an image that didn't come through the pipeline.
