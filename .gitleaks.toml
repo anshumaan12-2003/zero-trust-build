@@ -1,0 +1,11 @@
+# gitleaks settings: the default rules, plus one allowance for the fake
+# decoy credentials the sandbox plants on purpose. They are labelled FAKE
+# inside each file and exist so the judge can catch builds that read them.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Labelled fake decoy credentials for the sandbox"
+paths = [
+  '''^sandbox/decoys/''',
+]
