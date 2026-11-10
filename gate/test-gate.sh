@@ -82,17 +82,35 @@ show_webhooks() {
     | grep -i kyverno | sed 's/^/        /'
 }
 
-# With the checker stopped, failurePolicy: Fail must refuse even the good image.
-show_webhooks "before stopping Kyverno"
-kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 > /dev/null
-kubectl wait -n kyverno --for=delete pod -l app.kubernetes.io/component=admission-controller --timeout=90s > /dev/null
-show_webhooks "after stopping Kyverno"
-if output="$(kubectl run checker-down --image="$GOOD" --restart=Never 2>&1)"; then
-  echo "FAIL: checker-down: the image was admitted while Kyverno was stopped"
+# 1. Checker unreachable, as in a crash or network fault. Point Kyverno's
+# Service at no pods. The webhooks stay registered, so failurePolicy: Fail
+# must refuse even the good image.
+selector="$(kubectl get service -n kyverno kyverno-svc -o jsonpath='{.spec.selector}')"
+kubectl patch service -n kyverno kyverno-svc --type merge \
+  -p '{"spec":{"selector":{"app.kubernetes.io/component":"nobody"}}}' > /dev/null
+sleep 5
+if output="$(kubectl run checker-unreachable --image="$GOOD" --restart=Never 2>&1)"; then
+  echo "FAIL: checker-unreachable: the image was admitted while Kyverno couldn't be reached"
   failures=$((failures + 1))
 else
-  echo "PASS: checker-down: refused while Kyverno was stopped"
+  echo "PASS: checker-unreachable: refused while Kyverno couldn't be reached"
   echo "      $output" | cut -c1-200
+fi
+kubectl patch service -n kyverno kyverno-svc --type merge -p "{\"spec\":{\"selector\":$selector}}" > /dev/null
+
+# 2. Checker switched off. Kyverno deletes its own webhooks when its deployment
+# is scaled to 0 or deleted (IsGoingDown in pkg/utils/runtime/utils.go), so
+# the gate opens. This is a known gap. The test asserts it so a change in
+# Kyverno's behaviour gets noticed.
+show_webhooks "before scaling Kyverno to 0"
+kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 > /dev/null
+kubectl wait -n kyverno --for=delete pod -l app.kubernetes.io/component=admission-controller --timeout=90s > /dev/null
+show_webhooks "after scaling Kyverno to 0"
+if kubectl run checker-off --image="$GOOD" --restart=Never > /dev/null 2>&1; then
+  echo "KNOWN GAP: checker-off: admitted, because Kyverno removed its webhooks"
+else
+  echo "FAIL: checker-off: refused, so Kyverno's shutdown behaviour changed. Update docs/week8-gate-results.md"
+  failures=$((failures + 1))
 fi
 
 exit "$failures"
