@@ -3,12 +3,22 @@
 # POLICY_DIR picks which policies to load. It defaults to sensor/policies.
 set -euo pipefail
 
-TETRAGON_IMAGE="quay.io/cilium/tetragon:v1.8.0"
+TETRAGON_IMAGE="quay.io/cilium/tetragon:v1.8.0@sha256:5ed9088a1582131d71b06c98e0d549a37a71ae63ab13aabefc7a47553c822a9d"
 POLICY_DIR="${POLICY_DIR:-$PWD/sensor/policies}"
 
 mkdir -p out/sensor
 openssl rand -hex 16 > out/nonce.txt
 NONCE="$(cat out/nonce.txt)"
+
+# quay.io sometimes returns 504. Retry the pull, but never start without the sensor.
+for attempt in 1 2 3 4; do
+  if docker pull -q "$TETRAGON_IMAGE"; then break; fi
+  if [ "$attempt" = 4 ]; then
+    echo "Could not pull Tetragon, so the build can't be watched." >&2
+    exit 1
+  fi
+  sleep $((attempt * 15))
+done
 
 docker run --name tetragon --rm -d \
   --pid=host --cgroupns=host --privileged \

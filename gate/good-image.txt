@@ -1,0 +1,1 @@
+ghcr.io/anshumaan12-2003/zero-trust-build-app@sha256:d5cd49a905893b013aaf5904ccf07260c7b3a6cfc2a2c9bc2ce49c08673a3a3a
