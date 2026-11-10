@@ -22,7 +22,7 @@ Code that might be poisoned never gets a key, and code that holds a key never ru
 
 ## Status
 
-Weeks 0–9 work end to end on GitHub's runners:
+Weeks 0–10 work end to end on GitHub's runners:
 
 1. **Sandbox** (Week 5): the build runs as a normal user, with no special powers and no route out except a proxy that allows only `registry.npmjs.org`.
 2. **Record** (Weeks 3–4): Tetragon watches the build from the kernel. Canaries prove it was running.
@@ -32,7 +32,22 @@ Weeks 0–9 work end to end on GitHub's runners:
 5. **Gate** (Week 8): Kyverno admits the app image only with a signature and a passing behaviour record from `main`. Tested on kind with 8 cases. Known gap: scaling Kyverno to 0 removes its webhooks and opens the gate (`docs/week8-gate-results.md`).
 6. **Attack lab** (Week 9): 19 harmless, labelled scenarios run through the real sandbox, sensor and judge, with each verdict checked against an expectation written in advance. Of the build attacks, 6 are caught and 5 get through, each miss documented — DNS tunnelling, exfil through the allowed domain, an unreviewed output file, dormant runtime-only code, and a memory read the kernel refuses before the sensor sees it (`docs/week9-attack-lab-results.md`).
 
-Next: Week 10 — measure the false-alarm rate, added build time and evidence size, and switch the unknown-program rule from warn to fail.
+7. **Measure and harden** (Week 10): the numbers below, a lost-events rule in the judge, unknown programs now fail the build, and a [threat model](docs/threat-model.md).
+
+## Measured results
+
+From `measure.yml` run [42798034833](https://github.com/anshumaan12-2003/zero-trust-build/actions/runs/42798034833) on GitHub's `ubuntu-24.04` runners. These are small samples, so they're given as counts. Raw data: [`results/summary.json`](results/summary.json) and [`results/raw/`](results/raw/). Method: [`docs/week10-measure-results.md`](docs/week10-measure-results.md).
+
+| Measure | Result |
+|---|---|
+| False alarms | 0 of 20 clean builds failed |
+| Lost sensor events | 0 of 20 runs |
+| Build attacks caught | 6 of 12, each miss documented ([attack lab](docs/week9-attack-lab-results.md)) |
+| Added build time | +18.0 s (3.0 s plain, 21.0 s secured; median of 10 each) |
+| Evidence per build | 6.5 MB (median of 20) |
+| Gate time per pod | +1.1 s (2.2 s on the first call) |
+
+Next: Weeks 11–12, a real cluster and finishing.
 
 ## Related work
 

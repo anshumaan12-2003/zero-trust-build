@@ -1,0 +1,106 @@
+{
+  "recorded": "2026-11-10",
+  "source_run": "https://github.com/anshumaan12-2003/zero-trust-build/actions/runs/42798034833",
+  "runner": "GitHub-hosted ubuntu-24.04",
+  "build_time": {
+    "runs_each": 10,
+    "method": "Plain and secured builds alternate on one runner. Plain is the same build steps in an ordinary container. Secured is sensor start, the sandboxed build through the proxy, and sensor stop. Medians, in seconds.",
+    "plain_build_s": 3.0,
+    "secured_sensor_start_s": 3.93,
+    "secured_build_s": 13.59,
+    "secured_sensor_stop_s": 3.3,
+    "secured_total_s": 21.04,
+    "added_s": 18.04,
+    "raw_plain_s": [
+      3.24,
+      3.0,
+      3.04,
+      3.0,
+      3.0,
+      2.97,
+      2.94,
+      3.02,
+      2.96,
+      2.99
+    ],
+    "raw_secured_total_s": [
+      20.8,
+      21.41,
+      20.26,
+      21.3,
+      20.26,
+      20.69,
+      21.28,
+      21.3,
+      20.29,
+      21.33
+    ]
+  },
+  "false_alarms": {
+    "clean_runs": 20,
+    "failed": 0,
+    "summary": "0 of 20 clean builds failed",
+    "failed_runs": [],
+    "runs_with_warnings": 0,
+    "warnings": []
+  },
+  "evidence": {
+    "median_bytes": 6494267.5,
+    "max_bytes": 6738014,
+    "median_sensor_log_bytes": 1125502.0,
+    "median_build_output_bytes": 2856960.0,
+    "median_sensor_events": 1136.5
+  },
+  "events_lost": {
+    "runs_with_metrics": 20,
+    "counters": {
+      "tetragon_missed_link_probes_total": 0.0,
+      "tetragon_missed_prog_probes_total": 0.0,
+      "tetragon_observer_ringbuf_events_lost_total": 0.0,
+      "tetragon_observer_ringbuf_queue_events_lost_total": 0.0
+    },
+    "runs_with_any_loss": 0,
+    "note": "Each counter shows the highest value seen in any run."
+  },
+  "gate_time": {
+    "runs_each": 10,
+    "method": "Server-side dry-run pod creation with the image signed by main, on kind. First with Kyverno installed but no image policy, then with the gate. The first gated call is reported apart, because later calls can use Kyverno's cache. Seconds, including kubectl's own start-up.",
+    "no_policy_median_s": 0.06,
+    "gated_first_call_s": 2.19,
+    "gated_median_after_first_s": 1.19,
+    "added_median_s": 1.13
+  },
+  "attack_lab": {
+    "source": "attack-lab workflow, each scenario asserted against lab/expected.toml",
+    "scenarios": 19,
+    "build_attacks": 12,
+    "caught": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M6",
+      "M9"
+    ],
+    "not_caught": [
+      "M5",
+      "M7",
+      "M8",
+      "M10",
+      "M11",
+      "M12"
+    ],
+    "summary": "6 of 12 build attacks caught; 6 not caught (M8 has nothing to find, the rest are documented misses)",
+    "tampering_caught": [
+      "S3",
+      "S4",
+      "S5"
+    ],
+    "clean_builds_passing": [
+      "B1",
+      "B3",
+      "B4",
+      "B5"
+    ]
+  }
+}

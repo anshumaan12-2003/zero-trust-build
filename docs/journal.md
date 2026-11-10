@@ -97,3 +97,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** 6 of the build attacks are caught, 5 get through, and each miss is documented. Reading another process's `/environ` is caught (MEM-2) but reading its `/mem` is not, because the kernel refuses that read before the sensor's hook fires — I predicted that miss in advance and it held. DNS tunnelling, exfil through the allowed npm domain, an extra file in the output, and dormant runtime-only code are all misses by design: the pipeline proves what the build did, not what the artifact is or does later.
 - **Learned (write this in your own words):**
 - **Next:** Week 10, measure — false-alarm rate, added build time, evidence size — and switch `unknown_action` to `fail`.
+
+## 2026-11-10: Week 10
+
+- **Did:** added `measure.yml` and `measure/`. It times 10 plain against 10 secured builds, runs 20 clean builds on fresh runners, and times the gate. The results are in `results/summary.json` and `docs/week10-measure-results.md`. I also added a lost-events rule (SENSOR-5), switched unknown programs to fail, and wrote `docs/threat-model.md`, a results page and its Pages workflow.
+- **Broke:** my attempt to install the `gh actions-lock` extension on the Mac was blocked, because it runs outside code.
+- **Fixed by:** not fixed yet. The lockfile is waiting on that install.
+- **Found:** 0 of 20 clean builds failed, and 0 lost events. The secured build adds 18 s to a 3 s build, and the earlier sensor-only test suggests most of that is sandbox setup, not the sensor. The gate adds about 1.1 s per pod. The roadmap's name for the lost-events counter is right for Tetragon v1.8.0, but older docs use a name this version doesn't export.
+- **Learned (write this in your own words):**
+- **Next:** Weeks 11–12, a real cluster and finishing.
