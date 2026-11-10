@@ -1,4 +1,4 @@
-# Rules for one build. The judge (Week 6) reads this file with Python's
+# Rules for one build. The judge (ztb/judge.py) reads this file with Python's
 # built-in tomllib, so it needs no third-party packages.
 
 [network]
