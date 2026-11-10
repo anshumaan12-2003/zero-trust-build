@@ -20,9 +20,19 @@ spec:
             description: >-
               If Kyverno was scaled to 0 or deleted, it removed its own webhooks
               and unsigned images can run. If it crashed, every app pod is refused.
+        # increase() alone misses the first refusal in a new namespace, because
+        # a counter series that appears with its first value has no increase.
+        # Comparing the total with 10 minutes ago catches that case. The
+        # increase() half still works after Kyverno restarts and resets its counters.
         - alert: ZTBUnprovenImageRefused
           expr: >-
-            sum(increase(kyverno_image_validating_policy_results_total{policy_name="require-build-attestation", result="fail"}[10m])) > 0
+            (
+              (sum(kyverno_image_validating_policy_results_total{policy_name="require-build-attestation", result="fail"}) or vector(0))
+              - (sum(kyverno_image_validating_policy_results_total{policy_name="require-build-attestation", result="fail"} offset 10m) or vector(0))
+              > 0
+            )
+            or
+            (sum(increase(kyverno_image_validating_policy_results_total{policy_name="require-build-attestation", result="fail"}[10m])) > 0)
           labels:
             severity: warning
           annotations:

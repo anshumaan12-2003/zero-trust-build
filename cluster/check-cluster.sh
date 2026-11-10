@@ -117,7 +117,12 @@ fi
 alert_state() {
   curl -fsS "$prom/api/v1/alerts" | python3 -c "import json,sys; print(' '.join(sorted({a['state'] for a in json.load(sys.stdin)['data']['alerts'] if a['labels']['alertname'] == '$1'})) or 'inactive')"
 }
-state="$(alert_state ZTBUnprovenImageRefused)"
+# Rules are evaluated every 15 s, so give it a few rounds.
+for _ in $(seq 1 9); do
+  state="$(alert_state ZTBUnprovenImageRefused)"
+  [ "$state" = firing ] && break
+  sleep 10
+done
 if [ "$state" = firing ]; then
   pass "ZTBUnprovenImageRefused is firing after the refusals"
 else
