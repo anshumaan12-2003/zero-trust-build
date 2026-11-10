@@ -89,6 +89,12 @@ selector="$(kubectl get service -n kyverno kyverno-svc -o jsonpath='{.spec.selec
 kubectl patch service -n kyverno kyverno-svc --type merge \
   -p '{"spec":{"selector":{"app.kubernetes.io/component":"nobody"}}}' > /dev/null
 sleep 5
+echo "      DEBUG endpoints:"; kubectl get endpointslices -n kyverno -o wide | sed 's/^/        /'
+echo "      DEBUG webhooks:"
+kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations -o json | jq -c '
+  .items[] | select(.metadata.name | test("kyverno-resource")) | .metadata.name as $n
+  | .webhooks[] | {cfg: $n, name, failurePolicy, clientConfig: (.clientConfig | del(.caBundle)),
+    rules: [.rules[] | .resources | join(",")], namespaceSelector, objectSelector, matchConditions}' | sed 's/^/        /'
 if output="$(kubectl run checker-unreachable --image="$GOOD" --restart=Never 2>&1)"; then
   echo "FAIL: checker-unreachable: the image was admitted while Kyverno couldn't be reached"
   failures=$((failures + 1))
