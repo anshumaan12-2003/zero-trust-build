@@ -1,0 +1,50 @@
+# The gate: a pod may use the app image only if
+#   1. the image is signed by pipeline.yml running on main,
+#   2. a behaviour record (in-toto runtime-trace) is signed by the same identity, and
+#   3. that record's verdict is "pass".
+# Images are checked by digest, so a tag moved later can't slip past.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: require-build-attestation
+spec:
+  validationActions: [Deny]
+  # If Kyverno can't check, refuse. Never let an image in because the checker was down.
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 15
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ['']
+        apiVersions: ['v1']
+        resources: ['pods']
+        operations: ['CREATE', 'UPDATE']
+  matchImageReferences:
+    - glob: 'ghcr.io/anshumaan12-2003/zero-trust-build-app*'
+  validationConfigurations:
+    mutateDigest: true
+    verifyDigest: true
+    required: true
+  attestors:
+    - name: pipeline
+      cosign:
+        keyless:
+          identities:
+            - subject: 'https://github.com/anshumaan12-2003/zero-trust-build/.github/workflows/pipeline.yml@refs/heads/main'
+              issuer: 'https://token.actions.githubusercontent.com'
+        ctlog:
+          url: 'https://rekor.sigstore.dev'
+  attestations:
+    - name: runtimeTrace
+      intoto:
+        type: https://in-toto.io/attestation/runtime-trace/v0.2
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.pipeline])).all(e, e > 0)
+      message: 'The image is not signed by pipeline.yml on main'
+    - expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.runtimeTrace, [attestors.pipeline])).all(e, e > 0)
+      message: 'The image has no signed behaviour record from pipeline.yml on main'
+    - expression: >-
+        images.containers.map(image, extractPayload(image, attestations.runtimeTrace).predicate.ztb.verdict == 'pass').all(e, e)
+      message: 'The signed behaviour record does not say pass'
