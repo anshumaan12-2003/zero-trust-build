@@ -1,6 +1,6 @@
 # Week 11: a real cluster
 
-Recorded on 2026-11-10. Run: `cluster.yml` run 42833226386 on GitHub's `ubuntu-24.04` runners. An earlier run, 42831369640, failed one check, and that failure taught something (see "What the first run got wrong").
+PLACEHOLDER_RUNLINE
 
 ## What was built
 
@@ -62,6 +62,8 @@ Kyverno's metric `kyverno_image_validating_policy_results_total` is labelled by 
 - **Images other than the app pass without a check**, and they still count as "pass". Argo CD's own pods and Deployments show up in the allowed count.
 
 So the panels say "Allowed by the gate" and "Refused by the gate", not "app pods". The refusal table splits by namespace and kind.
+
+**Counts are a lower bound.** Prometheus's `increase()` can't count decisions made before it first scraped a series. A third CI run, 42834459913, showed this: every "allowed" decision happened during setup, before Prometheus picked up Kyverno, so the panel read 0 even though the app was running. The check now keeps making fresh dry-run decisions while it waits for the panels. On a long-running cluster this only affects the first scrape, but a dashboard total is never the full history.
 
 ## Memory
 

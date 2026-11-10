@@ -84,7 +84,12 @@ curl -fsS "$prom/api/v1/query" --data-urlencode 'query=sum by (namespace) (conta
   | python3 -c 'import json,sys; [print("       %s: %.0f" % (r["metric"].get("namespace"), float(r["value"][1]))) for r in sorted(json.load(sys.stdin)["data"]["result"], key=lambda r: -float(r["value"][1]))]'
 panels="$(mktemp)"
 dashboard_ok=1
+# increase() can't count decisions made before Prometheus first scraped a
+# series, and most were made during install. So keep making fresh ones
+# (dry runs, nothing is created) while waiting for the panels.
 for _ in $(seq 1 12); do
+  kubectl run fresh-signed --image="$GOOD" --restart=Never --dry-run=server -o name > /dev/null 2>&1
+  kubectl run fresh-unsigned --image="$UNSIGNED" --restart=Never --dry-run=server -o name > /dev/null 2>&1
   if python3 cluster/check-metrics.py "$prom" cluster/monitoring/dashboard.yaml > "$panels" 2>&1; then
     dashboard_ok=0
     break
