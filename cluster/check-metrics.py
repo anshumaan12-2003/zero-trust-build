@@ -12,8 +12,8 @@ import urllib.request
 
 # Panels that must show more than zero once the checks have run.
 MUST_BE_ABOVE_ZERO = {
-    "Pods allowed by the gate",
-    "Pods refused by the gate",
+    "Allowed by the gate",
+    "Refused by the gate",
     "Kyverno admission controllers up",
 }
 

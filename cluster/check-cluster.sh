@@ -49,23 +49,24 @@ else
   pass "the unsigned image is refused: $(echo "$output" | cut -c1-160)"
 fi
 
-# 3. Git asks for the unsigned image. Argo CD applies the Deployment, but
-# the gate refuses every pod its ReplicaSet tries to create.
+# 3. Git asks for the unsigned image. Kyverno checks pod controllers too, so
+# the gate refuses the Deployment itself and Argo CD's sync fails. No
+# ReplicaSet or pod is ever created. (The first CI run waited for refused
+# pods, which never came: the refusal happens one step earlier.)
 sed "s|REVISION|$REVISION|" cluster/argocd/bad-app.yaml | kubectl apply -f - > /dev/null
 refusal=""
 for _ in $(seq 1 36); do
-  refusal="$(kubectl get events -n ztb-bad --field-selector reason=FailedCreate -o jsonpath='{.items[*].message}' 2> /dev/null)"
+  refusal="$(kubectl get application -n argocd ztb-bad -o jsonpath='{.status.operationState.message} {.status.operationState.syncResult.resources[*].message}' 2> /dev/null)"
   [[ "$refusal" == *"not signed by pipeline.yml"* ]] && break
   sleep 5
 done
-running="$(kubectl get pods -n ztb-bad -o name 2> /dev/null | wc -l | tr -d ' ')"
-if [[ "$refusal" == *"not signed by pipeline.yml"* ]] && [ "$running" = 0 ]; then
-  pass "Argo CD applied the unsigned Deployment and the gate refused its pods"
-  echo "      $(echo "$refusal" | head -c 220)"
+if [[ "$refusal" == *"not signed by pipeline.yml"* ]] && ! kubectl get deployment -n ztb-bad ztb-unsigned > /dev/null 2>&1; then
+  pass "the gate refused the unsigned Deployment from Git, so Argo CD's sync failed"
+  echo "      $(echo "$refusal" | tr -s ' ' | head -c 260)"
 else
-  fail "the unsigned Deployment wasn't refused as expected ($running pods, events: ${refusal:-none})"
+  fail "the unsigned Deployment from Git wasn't refused as expected: ${refusal:-no sync message}"
 fi
-kubectl get application -n argocd ztb-bad -o jsonpath='      Argo CD says: sync {.status.sync.status}, health {.status.health.status}{"\n"}'
+kubectl get application -n argocd ztb-bad -o jsonpath='      Argo CD says: sync {.status.sync.status}, health {.status.health.status}, phase {.status.operationState.phase}{"\n"}'
 
 # 4. Prometheus has scraped the decisions, and every dashboard panel has data.
 forward monitoring svc/kube-prometheus-stack-prometheus 9090:9090
@@ -76,7 +77,7 @@ curl -fsS "$prom/api/v1/query" --data-urlencode 'query=up{namespace="kyverno"}' 
   | python3 -c 'import json,sys; [print("      ", r["metric"].get("service"), r["metric"].get("job"), r["value"][1]) for r in json.load(sys.stdin)["data"]["result"]]'
 echo "Gate results Kyverno reported:"
 curl -fsS "$prom/api/v1/query" --data-urlencode 'query=kyverno_image_validating_policy_results_total' \
-  | python3 -c 'import json,sys; [print("      ", {k: v for k, v in r["metric"].items() if k in ("policy_name","result","resource_namespace","resource_request_operation","execution_cause")}, r["value"][1]) for r in json.load(sys.stdin)["data"]["result"]]'
+  | python3 -c 'import json,sys; [print("      ", {k: v for k, v in r["metric"].items() if k in ("policy_name","result","resource_kind","resource_namespace","resource_request_operation","execution_cause")}, r["value"][1]) for r in json.load(sys.stdin)["data"]["result"]]'
 # How much memory each part uses, to size the Azure VM.
 echo "Memory in use by namespace (MiB):"
 curl -fsS "$prom/api/v1/query" --data-urlencode 'query=sum by (namespace) (container_memory_working_set_bytes{container!=""}) / 1048576' \
@@ -132,6 +133,29 @@ if [ "$state" = firing ]; then
 else
   fail "ZTBGateDown is $state $((SECONDS - start)) s after Kyverno was scaled to 0"
 fi
+
+# Argo CD keeps retrying the refused sync. With the gate open, a retry gets
+# through and the unsigned app runs. This is what the gap means in practice.
+# Argo CD's retry timing varies, so not seeing it here isn't a failure.
+opened=""
+while [ $((SECONDS - start)) -lt 480 ]; do
+  if kubectl get pods -n ztb-bad -l app=ztb-unsigned -o jsonpath='{.items[*].status.phase}' 2> /dev/null | grep -q Running; then
+    opened=$((SECONDS - start))
+    break
+  fi
+  sleep 10
+done
+if [ -n "$opened" ]; then
+  echo "KNOWN GAP: Argo CD retried while Kyverno was off, and the unsigned app was running $opened s after the scale to 0"
+else
+  echo "NOT SEEN: no unsigned pod ran within $((SECONDS - start)) s of the scale to 0"
+fi
 kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=1 > /dev/null
+kubectl rollout status -n kyverno deployment/kyverno-admission-controller --timeout=180s > /dev/null
+if [ -n "$opened" ]; then
+  # The gate only checks new pods, so turning Kyverno back on doesn't stop one already running.
+  phase="$(kubectl get pods -n ztb-bad -l app=ztb-unsigned -o jsonpath='{.items[*].status.phase}')"
+  echo "KNOWN GAP: with Kyverno back, the unsigned pod is still ${phase:-gone}"
+fi
 
 exit "$failures"

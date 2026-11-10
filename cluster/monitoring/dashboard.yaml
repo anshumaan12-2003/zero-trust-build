@@ -36,8 +36,8 @@ data:
         {
           "id": 1,
           "type": "stat",
-          "title": "Pods allowed by the gate",
-          "description": "App pods with a valid signature and a passing behaviour record, over the selected time range.",
+          "title": "Allowed by the gate",
+          "description": "Pods and pod controllers, such as Deployments, that the gate checked and allowed over the selected range. Images other than the app need no record and pass, so other pods count here too.",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
@@ -80,8 +80,8 @@ data:
         {
           "id": 2,
           "type": "stat",
-          "title": "Pods refused by the gate",
-          "description": "App pods refused because the image had no signature, no record, or a record that did not say pass.",
+          "title": "Refused by the gate",
+          "description": "Pods and pod controllers refused because the app image had no signature, no behaviour record, or a record that did not say pass.",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
@@ -285,7 +285,7 @@ data:
         {
           "id": 6,
           "type": "table",
-          "title": "Refusals by namespace",
+          "title": "Refusals by namespace and kind",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
@@ -299,7 +299,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "sum by (resource_namespace) (increase(kyverno_image_validating_policy_results_total{policy_name=\"require-build-attestation\", result=\"fail\"}[$__range])) > 0",
+              "expr": "sum by (resource_namespace, resource_kind) (increase(kyverno_image_validating_policy_results_total{policy_name=\"require-build-attestation\", result=\"fail\"}[$__range])) > 0",
               "instant": true,
               "format": "table"
             }
@@ -313,6 +313,7 @@ data:
                 },
                 "renameByName": {
                   "resource_namespace": "Namespace",
+                "resource_kind": "Kind",
                   "Value": "Refused"
                 }
               }

@@ -63,6 +63,7 @@ jobs:
         with:
           name: terraform-lock
           path: terraform/.terraform.lock.hcl
+          include-hidden-files: true
           if-no-files-found: error
 
   kind:
