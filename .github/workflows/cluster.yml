@@ -29,7 +29,7 @@ jobs:
     env:
       TERRAFORM_VERSION: 1.16.7
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Install Terraform and check its checksum
@@ -59,7 +59,7 @@ jobs:
           if git ls-files --error-unmatch terraform/.terraform.lock.hcl > /dev/null 2>&1; then
             git diff --exit-code terraform/.terraform.lock.hcl
           fi
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: terraform-lock
           path: terraform/.terraform.lock.hcl
@@ -72,7 +72,7 @@ jobs:
     permissions:
       contents: read # read the manifests and scripts
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Create the cluster

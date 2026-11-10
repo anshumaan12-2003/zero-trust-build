@@ -91,6 +91,6 @@ Later calls are still about 1.2 s each, so in this setup Kyverno appears to chec
 
 ## Not done, and why
 
-- **Workflow lockfiles:** these became generally available on 28 October 2026, through the `gh actions-lock` extension. The pin is v0.4.0, because v0.4.1 is under two weeks old. My attempt to install the extension on the Mac was blocked, since that runs outside code, so the lockfile isn't generated yet.
+- **Workflow lockfiles:** done after Week 12. `.github/workflows/actions.lock` was generated with `gh actions-lock` v0.4.0. The workflows now name each action by version tag, the lockfile holds the exact commits (the same ones that were pinned before), and CI runs `gh actions-lock --verify`.
 - **Comparison with cicd-sensor:** not run. It means installing and tuning a second eBPF agent, and a rushed comparison would be unfair to it. This is left for later.
 - **GitHub's native egress firewall:** this is still a technical preview, used through the `ubuntu-24.04-firewall` runner label. GitHub's roadmap from March 2026 aimed at general availability 6 to 9 months later. It hasn't arrived yet, so the comparison table stays as it is.

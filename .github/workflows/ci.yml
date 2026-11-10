@@ -24,7 +24,7 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - run: node --version
@@ -37,7 +37,7 @@ jobs:
     permissions:
       contents: read # read the code
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - run: python3 --version
@@ -49,10 +49,19 @@ jobs:
     permissions:
       contents: read # read the workflow files
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: actionlint
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
       - name: zizmor
         run: pipx run zizmor==1.32.0 --offline --persona=pedantic .github/workflows
+      # Every action's commit is recorded in .github/workflows/actions.lock, and
+      # GitHub's runner refuses an action whose tag no longer matches it. This
+      # also fails the PR if a workflow uses an action the lockfile doesn't cover.
+      - name: Check the actions lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh extension install github/gh-actions-lock --pin v0.4.0
+          gh actions-lock --verify
