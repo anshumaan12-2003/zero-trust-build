@@ -9,10 +9,13 @@ allowed_domains = ["registry.npmjs.org"]
 # Programs that should never run during this build.
 denied = ["*/curl", "*/wget", "*/nc", "*/ncat", "*/socat"]
 
-# Programs seen in every clean build recorded in Week 4 (run 42664568807).
+# Programs seen in every clean build. Week 4 (run 42664568807) found six.
+# Week 5's sandbox (run 42665549829) added grep and id, used by build-steps.sh.
 known = [
   "/tmp/work/node_modules/.bin/tsc",
   "/usr/bin/cp",
+  "/usr/bin/grep",
+  "/usr/bin/id",
   "/usr/bin/sh",
   "/usr/local/bin/docker-entrypoint.sh",
   "/usr/local/bin/node",

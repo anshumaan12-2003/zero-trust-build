@@ -52,3 +52,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** every build ran the same 6 programs. npm reached the registry through a different Cloudflare IP address each time, so the proxy must allow domains, not IP addresses.
 - **Learned (write this in your own words):**
 - **Next:** Week 5, the sandbox and the proxy.
+
+## 2026-11-09: Week 5
+
+- **Did:** locked the build in a sandbox with no route out and a Squid proxy as the only exit. Added fake decoy credentials and an escape test. Pinned both images to digests. Results are in `docs/week5-sandbox-results.md`.
+- **Broke:** before the first run, I noticed that copying the decoys into `$HOME` would read them, so every clean build would set off the decoy alarm. The first escape checker also used `eval`, which was fragile.
+- **Fixed by:** mounting the decoys read-only as `$HOME`, and rewriting the checker with plain functions.
+- **Found:** a clean build talks only to the proxy and Docker's DNS. The escape test's direct connection, other domain and decoy read were all blocked or recorded.
+- **Learned (write this in your own words):**
+- **Next:** Week 6, the judge.
