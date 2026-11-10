@@ -82,27 +82,26 @@ show_webhooks() {
     | grep -i kyverno | sed 's/^/        /'
 }
 
-# 1. Checker unreachable, as in a crash or network fault. Point Kyverno's
-# Service at no pods. The webhooks stay registered, so failurePolicy: Fail
-# must refuse even the good image.
-selector="$(kubectl get service -n kyverno kyverno-svc -o jsonpath='{.spec.selector}')"
-kubectl patch service -n kyverno kyverno-svc --type merge \
-  -p '{"spec":{"selector":{"app.kubernetes.io/component":"nobody"}}}' > /dev/null
-sleep 5
-echo "      DEBUG endpoints:"; kubectl get endpointslices -n kyverno -o wide | sed 's/^/        /'
-echo "      DEBUG webhooks:"
-kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations -o json | jq -c '
-  .items[] | select(.metadata.name | test("kyverno-resource")) | .metadata.name as $n
-  | .webhooks[] | {cfg: $n, name, failurePolicy, clientConfig: (.clientConfig | del(.caBundle)),
-    rules: [.rules[] | .resources | join(",")], namespaceSelector, objectSelector, matchConditions}' | sed 's/^/        /'
-if output="$(kubectl run checker-unreachable --image="$GOOD" --restart=Never 2>&1)"; then
-  echo "FAIL: checker-unreachable: the image was admitted while Kyverno couldn't be reached"
+# 1. Checker crashed: no Kyverno pod running, but the deployment still wants
+# one, so Kyverno doesn't treat it as a shutdown and its webhooks stay.
+# failurePolicy: Fail must then refuse even the good image.
+# (Changing the Service selector isn't enough: the API server keeps its open
+# connection to the old pod, which a first version of this test missed.)
+deployment=deployment/kyverno-admission-controller
+old_pod="$(kubectl get pods -n kyverno -l app.kubernetes.io/component=admission-controller -o name)"
+kubectl patch -n kyverno "$deployment" --type merge -p \
+  '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null},"template":{"spec":{"nodeSelector":{"ztb-test/no-such-node":"true"}}}}}' > /dev/null
+kubectl wait -n kyverno --for=delete "$old_pod" --timeout=90s > /dev/null
+show_webhooks "with no Kyverno pod running"
+if output="$(kubectl run checker-crashed --image="$GOOD" --restart=Never 2>&1)"; then
+  echo "FAIL: checker-crashed: the image was admitted with no Kyverno pod running"
   failures=$((failures + 1))
 else
-  echo "PASS: checker-unreachable: refused while Kyverno couldn't be reached"
-  echo "      $output" | cut -c1-200
+  echo "PASS: checker-crashed: refused with no Kyverno pod running"
+  echo "      $output" | cut -c1-220
 fi
-kubectl patch service -n kyverno kyverno-svc --type merge -p "{\"spec\":{\"selector\":$selector}}" > /dev/null
+kubectl rollout undo -n kyverno "$deployment" > /dev/null
+kubectl rollout status -n kyverno "$deployment" --timeout=180s > /dev/null
 
 # 2. Checker switched off. Kyverno deletes its own webhooks when its deployment
 # is scaled to 0 or deleted (IsGoingDown in pkg/utils/runtime/utils.go), so
