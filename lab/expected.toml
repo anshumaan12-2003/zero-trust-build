@@ -1,0 +1,101 @@
+# What each attack-lab scenario should do, written down before running it.
+# lab/assert.py checks the judge's verdict against this file.
+#
+#   verdict  "pass" or "fail"
+#   rules    the failing rules that must appear (exactly), for a caught attack
+#   note     one line on why the scenario exists
+#
+# "Expected miss" scenarios carry verdict = "pass" on purpose: they are attacks
+# the pipeline is not designed to catch at build time, and documenting them is
+# the point of the lab.
+
+# --- Normal builds: these must pass --------------------------------------
+[B1]
+verdict = "pass"
+note = "Clean build. The baseline every other result is measured against."
+
+[B3]
+verdict = "pass"
+note = "A new ordinary dependency. Its unknown programs are a PROC-2 warning, not a failure, while unknown_action is 'warn'."
+
+[B4]
+verdict = "pass"
+note = "A dependency with a harmless install script. Install scripts are not failures by themselves."
+
+[B5]
+verdict = "pass"
+note = "A larger dependency tree. Stresses event volume without tripping a rule."
+
+# --- Attacks inside the build --------------------------------------------
+[M1]
+verdict = "fail"
+rules = ["NET-1"]
+note = "Install script opens a direct connection to a reserved address."
+
+[M2]
+verdict = "fail"
+rules = ["NET-2"]
+note = "Install script asks the proxy for a domain that is not on the allow list."
+
+[M3]
+verdict = "fail"
+rules = ["FILE-1"]
+note = "Install script reads the decoy AWS credentials."
+
+[M4]
+verdict = "fail"
+rules = ["MEM-2"]
+note = "Install script reads another process's environment via /proc."
+
+[M5]
+verdict = "pass"
+note = "Expected miss: opens another process's memory via /proc/<pid>/mem. The Week 9 sensor work found the kernel refuses this read before the file hook fires, so it leaves no event. The attestation records that the pipeline does not catch it."
+
+[M6]
+verdict = "fail"
+rules = ["NET-1"]
+note = "Install script connects to the cloud metadata address 169.254.169.254."
+
+[M7]
+verdict = "pass"
+note = "Expected miss: data hidden in DNS lookups. The resolver is loopback, which the judge ignores."
+
+[M8]
+verdict = "pass"
+note = "Searches the environment for tokens and finds none, because the sandbox injects no secrets."
+
+[M9]
+verdict = "fail"
+rules = ["NET-1"]
+note = "Attack fires only when CI=true. The sandbox sets CI=true, so it still runs and is caught."
+
+[M10]
+verdict = "pass"
+note = "Expected miss: slips an extra file into the build output. The judge checks behaviour, not output contents."
+
+[M11]
+verdict = "pass"
+note = "Expected miss: sends data out through the allowed npm domain. An allow-listed host can still be a covert channel."
+
+[M12]
+verdict = "pass"
+note = "Expected miss: does nothing during the build and would act only when the app runs later."
+
+# --- Attacks on the pipeline itself --------------------------------------
+# S1 (sensor never starts) and S2 (sensor stopped halfway) are demonstrated by
+# the sensor-build kill-test. These three tamper with the evidence after a
+# clean build instead.
+[S3]
+verdict = "fail"
+rules = ["BUILD-1"]
+note = "The build output is deleted from the evidence. The judge fails with no output."
+
+[S4]
+verdict = "fail"
+rules = ["SENSOR-2"]
+note = "A line in the sensor log is corrupted."
+
+[S5]
+verdict = "fail"
+rules = ["SENSOR-4"]
+note = "The recorded container ID is replaced, so no event matches the sandbox."

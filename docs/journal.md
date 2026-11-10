@@ -88,3 +88,12 @@ After every session, write what you did, what broke, and how you fixed it. These
 - **Found:** Kyverno reads cosign v3 bundles. Kyverno deletes its own webhooks when scaled to 0, so the gate opens. A crash keeps the webhooks, so the gate stays shut. My first two "Kyverno is down" tests were wrong, and printing the webhook configurations showed why.
 - **Learned (write this in your own words):**
 - **Next:** Week 9, the attack lab.
+
+## 2026-11-10: Week 9
+
+- **Did:** built the attack lab under `lab/`: 19 harmless, labelled scenarios that run through the real sandbox, sensor and judge, with the expected verdict for each written in `lab/expected.toml` before the run and checked by `lab/assert.py`. One CI job per scenario; the release job is never involved. Results are in `docs/week9-attack-lab-results.md`.
+- **Broke:** nothing — every scenario matched its written-down expectation on the first run.
+- **Fixed by:** n/a.
+- **Found:** 6 of the build attacks are caught, 5 get through, and each miss is documented. Reading another process's `/environ` is caught (MEM-2) but reading its `/mem` is not, because the kernel refuses that read before the sensor's hook fires — I predicted that miss in advance and it held. DNS tunnelling, exfil through the allowed npm domain, an extra file in the output, and dormant runtime-only code are all misses by design: the pipeline proves what the build did, not what the artifact is or does later.
+- **Learned (write this in your own words):**
+- **Next:** Week 10, measure — false-alarm rate, added build time, evidence size — and switch `unknown_action` to `fail`.
