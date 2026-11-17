@@ -1,0 +1,59 @@
+# The image allow-list for the app's namespaces. The Kyverno gate checks only
+# images named like the app, so on its own it admits any other image. In a
+# namespace labelled ztb.dev/images=signed-app-only, this allows nothing but
+# the app image by digest, in every kind of container.
+#
+# It is a built-in ValidatingAdmissionPolicy: the API server checks it itself,
+# so it keeps working when Kyverno is down or scaled to 0.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: ztb-app-namespace-images
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ['']
+        apiVersions: ['v1']
+        resources: ['pods', 'pods/ephemeralcontainers']
+        operations: ['CREATE', 'UPDATE']
+      - apiGroups: ['apps']
+        apiVersions: ['v1']
+        resources: ['deployments', 'replicasets', 'statefulsets', 'daemonsets']
+        operations: ['CREATE', 'UPDATE']
+      - apiGroups: ['batch']
+        apiVersions: ['v1']
+        resources: ['jobs', 'cronjobs']
+        operations: ['CREATE', 'UPDATE']
+  variables:
+    - name: spec
+      expression: >-
+        object.kind == 'Pod' ? object.spec :
+        object.kind == 'CronJob' ? object.spec.jobTemplate.spec.template.spec :
+        object.spec.template.spec
+    - name: images
+      expression: >-
+        variables.spec.containers.map(c, c.image)
+        + variables.spec.?initContainers.orValue([]).map(c, c.image)
+        + variables.spec.?ephemeralContainers.orValue([]).map(c, c.image)
+    - name: notAllowed
+      expression: >-
+        variables.images.filter(i,
+          !i.matches('^ghcr[.]io/anshumaan12-2003/zero-trust-build-app@sha256:[0-9a-f]{64}$'))
+  validations:
+    - expression: size(variables.notAllowed) == 0
+      messageExpression: >-
+        'Only the signed app image, by digest, may run in this namespace. Not allowed: '
+        + variables.notAllowed.join(', ')
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: ztb-app-namespace-images
+spec:
+  policyName: ztb-app-namespace-images
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        ztb.dev/images: signed-app-only

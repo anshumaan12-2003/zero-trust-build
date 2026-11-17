@@ -70,7 +70,7 @@ Measured on GitHub's `ubuntu-24.04` runners. These are small samples, so they're
 | Gate time per pod | **+1.1 s** (2.2 s on the first call) | [Week 10](docs/week10-measure-results.md) |
 | Gate-down alert | Fires **120 to 141 s** after Kyverno is scaled to 0 | [Week 11](docs/week11-cluster-results.md) |
 
-The 18 s is a fixed cost, so on this 3-second demo build it looks bigger than it would on a real one. Raw data is in [`results/`](results/).
+The 40 clean builds are two runs of 20; the results page shows the first. The 18 s is a fixed cost, so on this 3-second demo build it looks bigger than it would on a real one. Raw data is in [`results/`](results/).
 
 ## What it can't do
 

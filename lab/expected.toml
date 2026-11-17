@@ -48,8 +48,9 @@ rules = ["MEM-2"]
 note = "Install script reads another process's environment via /proc."
 
 [M5]
-verdict = "pass"
-note = "Expected miss: opens another process's memory via /proc/<pid>/mem. The Week 9 sensor work found the kernel refuses this read before the file hook fires, so it leaves no event. The attestation records that the pipeline does not catch it."
+verdict = "fail"
+rules = ["MEM-2"]
+note = "Opens another process's memory via /proc/<pid>/mem. The kernel refuses the open, so the read hook never fires. A miss until the file-open hook was added after Week 12, which runs before the refusal."
 
 [M6]
 verdict = "fail"
@@ -80,6 +81,20 @@ note = "Expected miss: sends data out through the allowed npm domain. An allow-l
 [M12]
 verdict = "pass"
 note = "Expected miss: does nothing during the build and would act only when the app runs later."
+
+[M13]
+verdict = "fail"
+rules = ["NET-4"]
+note = "Sends a UDP packet without calling connect(), which the connect hook can't see. Caught by the udp_sendmsg hook added after Week 12."
+
+[M14]
+verdict = "fail"
+rules = ["FILE-1"]
+note = "Opens the decoy SSH key without reading it, as code that memory-maps a file would. Caught by the file-open hook added after Week 12."
+
+[M15]
+verdict = "pass"
+note = "Expected miss: replaces node_modules/.bin/tsc with a script of the same name. The known-program list matches paths, so a trusted name can run other code. Its actions still face every other rule."
 
 # --- Attacks on the pipeline itself --------------------------------------
 # S1 (sensor never starts) and S2 (sensor stopped halfway) are demonstrated by

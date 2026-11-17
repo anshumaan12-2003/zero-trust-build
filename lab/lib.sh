@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers for the attack-lab scenarios. Sourced by each mutate-app.sh.
 # Every payload here is a harmless, clearly labelled test fixture. It only
 # touches reserved addresses (203.0.113.0/24, 169.254.169.254), .invalid

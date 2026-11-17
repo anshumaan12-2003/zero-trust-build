@@ -3,6 +3,8 @@
 #   2. a behaviour record (in-toto runtime-trace) is signed by the same identity, and
 #   3. that record's verdict is "pass".
 # Images are checked by digest, so a tag moved later can't slip past.
+# Every container counts: normal, init and ephemeral (kubectl debug). The
+# checks first covered only normal containers.
 apiVersion: policies.kyverno.io/v1
 kind: ImageValidatingPolicy
 metadata:
@@ -17,7 +19,9 @@ spec:
     resourceRules:
       - apiGroups: ['']
         apiVersions: ['v1']
-        resources: ['pods']
+        # kubectl debug adds ephemeral containers through a subresource, so it
+        # has to be listed or those images are never checked.
+        resources: ['pods', 'pods/ephemeralcontainers']
         operations: ['CREATE', 'UPDATE']
   matchImageReferences:
     - glob: 'ghcr.io/anshumaan12-2003/zero-trust-build-app*'
@@ -40,11 +44,11 @@ spec:
         type: https://in-toto.io/attestation/runtime-trace/v0.2
   validations:
     - expression: >-
-        images.containers.map(image, verifyImageSignatures(image, [attestors.pipeline])).all(e, e > 0)
+        (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyImageSignatures(image, [attestors.pipeline])).all(e, e > 0)
       message: 'The image is not signed by pipeline.yml on main'
     - expression: >-
-        images.containers.map(image, verifyAttestationSignatures(image, attestations.runtimeTrace, [attestors.pipeline])).all(e, e > 0)
+        (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyAttestationSignatures(image, attestations.runtimeTrace, [attestors.pipeline])).all(e, e > 0)
       message: 'The image has no signed behaviour record from pipeline.yml on main'
     - expression: >-
-        images.containers.map(image, extractPayload(image, attestations.runtimeTrace).predicate.ztb.verdict == 'pass').all(e, e)
+        (images.containers + images.initContainers + images.ephemeralContainers).map(image, extractPayload(image, attestations.runtimeTrace).predicate.ztb.verdict == 'pass').all(e, e)
       message: 'The signed behaviour record does not say pass'

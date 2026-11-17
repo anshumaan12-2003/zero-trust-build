@@ -1,0 +1,33 @@
+# Reports UDP packets sent to anything but loopback. A UDP socket can send
+# without ever calling connect(), so security_socket_connect never sees it.
+# udp_sendmsg runs for every UDP send, before the route lookup, so a send the
+# sandbox can't route still leaves an event. DNS through Docker's resolver
+# (127.0.0.11) is left out by the selectors.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "udp-send"
+spec:
+  kprobes:
+  - call: "udp_sendmsg"
+    syscall: false
+    args:
+    - index: 0
+      type: "sock"
+    selectors:
+    - matchArgs:
+      - index: 0
+        operator: "NotDAddr"
+        values:
+        - "127.0.0.0/8"
+  - call: "udpv6_sendmsg"
+    syscall: false
+    args:
+    - index: 0
+      type: "sock"
+    selectors:
+    - matchArgs:
+      - index: 0
+        operator: "NotDAddr"
+        values:
+        - "::1/128"

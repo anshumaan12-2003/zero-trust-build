@@ -2,7 +2,7 @@
 # built-in tomllib, so it needs no third-party packages.
 
 [network]
-# Week 5's proxy will allow only these domains.
+# The proxy (sandbox/allowed-domains.txt) allows only these domains.
 allowed_domains = ["registry.npmjs.org"]
 
 [processes]

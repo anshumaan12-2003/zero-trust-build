@@ -20,6 +20,8 @@ import tomllib
 from pathlib import Path
 
 MEMORY_CALLS = ("sys_ptrace", "sys_process_vm_readv")
+UDP_SEND_CALLS = ("udp_sendmsg", "udpv6_sendmsg")
+UNCONNECTED = ("", "0.0.0.0", "::")
 
 
 def read_events(log_dir):
@@ -106,6 +108,17 @@ def judge(events, proxy_lines, policy, nonce, container_id, proxy_ip):
                 destinations.add(f"{ip}:{port}")
                 if ip != proxy_ip:
                     add("NET-1", "fail", f"{binary} tried to connect to {ip}:{port}")
+            sock = argument.get("sock_arg")
+            if sock and function in UDP_SEND_CALLS:
+                ip = sock.get("daddr", "")
+                if ip.startswith("127.") or ip == "::1":
+                    continue
+                if ip in UNCONNECTED:
+                    # The address is only in the packet, which the hook doesn't read.
+                    add("NET-4", "fail", f"{binary} sent UDP from a socket that never connected")
+                else:
+                    destinations.add(f"{ip}:{sock.get('dport', 0)}/udp")
+                    add("NET-4", "fail", f"{binary} sent UDP to {ip}:{sock.get('dport', 0)}")
             path = argument.get("file_arg", {}).get("path", "")
             if path and matches(path, policy["files"]["decoys"]):
                 add("FILE-1", "fail", f"{binary} read a decoy file: {path}")
@@ -187,6 +200,7 @@ def build_predicate(report, policy_path, dist_path):
     """Follows the in-toto runtime-trace v0.2 predicate."""
     repo = os.environ.get("GITHUB_REPOSITORY", "local/test")
     run_id = os.environ.get("GITHUB_RUN_ID", "0")
+    commit = os.environ.get("GITHUB_SHA", "")
     attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
     network = [{"hostname": domain, "protocol": "tcp"} for domain in report["domains"]]
     return {
@@ -203,6 +217,7 @@ def build_predicate(report, policy_path, dist_path):
         "ztb": {
             "verdict": report["verdict"],
             "findings": report["findings"],
+            "sourceCommit": commit,
             "policySha256": sha256(policy_path),
             "distSha256": sha256(dist_path),
         },

@@ -2,7 +2,8 @@ name: attack-lab
 
 # The attack lab: run each harmless scenario against the real sandbox, sensor
 # and judge, and check the verdict against what lab/expected.toml predicts.
-# Started by hand, or on a change to lab/. One job per scenario, so a miss in
+# Started by hand, or on a change to lab/, the sandbox, the sensor, the judge
+# or the policy. One job per scenario, so a miss in
 # one never hides a miss in another. The release job is never involved.
 # B6 (the clean build repeated) is measure.yml's 20-run false-alarm matrix.
 
@@ -10,6 +11,10 @@ on:
   pull_request:
     paths:
       - 'lab/**'
+      - 'sandbox/**'
+      - 'sensor/**'
+      - 'ztb/**'
+      - 'policy/**'
       - '.github/workflows/lab.yml'
   workflow_dispatch:
 
@@ -45,6 +50,9 @@ jobs:
           - M10
           - M11
           - M12
+          - M13
+          - M14
+          - M15
           - S3
           - S4
           - S5
