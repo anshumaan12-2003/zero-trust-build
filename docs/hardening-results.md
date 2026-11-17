@@ -3,9 +3,9 @@
 Recorded on 2026-11-17. A review after Week 12 found gaps in what the sensor sees, what the gate checks and how `main` is protected. This pass closes most of them and measures the result.
 
 **Runs:**
-- `attack-lab` run 44035083408: 22 of 22 scenarios matched their written-down expectations.
-- `gate-test` run 44035083317: 16 cases, all as designed.
-- `cluster` run 44035083248: all checks passed.
+- `attack-lab` run 44037773158: 22 of 22 scenarios matched their written-down expectations.
+- `gate-test` run 44037773227: 16 cases, all as designed.
+- `cluster` run 44037773170: all checks passed.
 - `measure` run 44033718418: false alarms and overhead with the new hooks.
 
 ## The sensor sees more
