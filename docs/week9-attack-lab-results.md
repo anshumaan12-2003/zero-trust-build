@@ -1,5 +1,7 @@
 # Week 9: the attack lab
 
+> **Update, 2026-11-17:** a file-open hook added after Week 12 now catches M5, and three new scenarios (M13–M15) were added. See [hardening-results.md](hardening-results.md).
+
 Recorded on 2026-11-10. Run: `lab.yml` (attack-lab) run 42783381402 on GitHub's `ubuntu-24.04` runner. Every scenario ran through the real sandbox (`sandbox/run-build.sh`), the real sensor (Tetragon v1.8.0) and the real judge (`ztb/judge.py`), against `policy/build-policy.toml`.
 
 ## What the lab is

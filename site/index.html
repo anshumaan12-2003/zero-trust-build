@@ -73,7 +73,7 @@
     return node;
   };
   const seconds = (v) => (v === null || v === undefined ? "n/a" : `${v} s`);
-  const kb = (v) => (v === null || v === undefined ? "n/a" : `${Math.round(v / 1024).toLocaleString()} KB`);
+  const mb = (v) => (v === null || v === undefined ? "n/a" : `${(v / 1e6).toFixed(1)} MB`);
 
   function rows(table, header, data) {
     const head = el("tr");
@@ -99,7 +99,7 @@
       ["False alarms", `${f.failed} of ${f.clean_runs}`, "clean builds that failed"],
       ["Build attacks caught", `${a.caught.length} of ${a.build_attacks}`, "each miss documented"],
       ["Runs with lost events", `${l.runs_with_any_loss} of ${l.runs_with_metrics}`, "from Tetragon's counters"],
-      ["Evidence per build", kb(e.median_bytes), `median, ${Math.round(e.median_sensor_events).toLocaleString()} events`],
+      ["Evidence per build", mb(e.median_bytes), `median, ${Math.round(e.median_sensor_events).toLocaleString()} events`],
       ["Gate time added", seconds(g.added_median_s), `median of ${g.runs_each - 1} warm calls`],
     ];
     const box = document.getElementById("tiles");

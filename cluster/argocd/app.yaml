@@ -20,3 +20,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+    # Turns on the image allow-list (gate/app-namespace-images.yaml).
+    managedNamespaceMetadata:
+      labels:
+        ztb.dev/images: signed-app-only

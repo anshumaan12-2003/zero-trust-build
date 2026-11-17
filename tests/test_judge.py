@@ -54,6 +54,15 @@ def file_read(path):
     return kprobe("security_file_permission", [{"file_arg": {"path": path}}, {"int_arg": 4}])
 
 
+def file_open(path):
+    return kprobe("security_file_open", [{"file_arg": {"path": path}}])
+
+
+def udp_send(daddr, dport=53):
+    sock = {"sock_arg": {"family": "AF_INET", "protocol": "IPPROTO_UDP", "daddr": daddr, "dport": dport}}
+    return kprobe("udp_sendmsg", [sock])
+
+
 CLEAN = [canary("start"), exec_event("/usr/local/bin/node"), exec_event("/usr/bin/sh"),
          connect(PROXY, 3128), connect("127.0.0.11", 53), canary("end")]
 OK_PROXY = [("TCP_TUNNEL/200", "registry.npmjs.org")]
@@ -133,6 +142,27 @@ class RulesTest(unittest.TestCase):
 
     def test_proc_mem_read(self):
         self.assertIn("MEM-2", rules(run(CLEAN + [file_read("/proc/4242/mem")])))
+
+    def test_decoy_opened_without_a_read(self):
+        self.assertEqual(rules(run(CLEAN + [file_open("/tmp/home/.ssh/id_rsa")])), {"FILE-1"})
+
+    def test_open_then_read_is_one_finding(self):
+        report = run(CLEAN + [file_open("/tmp/home/.aws/credentials"), file_read("/tmp/home/.aws/credentials")])
+        self.assertEqual([f["rule"] for f in report["findings"]], ["FILE-1"])
+
+    def test_refused_open_of_proc_mem(self):
+        self.assertEqual(rules(run(CLEAN + [file_open("/proc/1/mem")])), {"MEM-2"})
+
+    def test_udp_from_an_unconnected_socket(self):
+        self.assertEqual(rules(run(CLEAN + [udp_send("0.0.0.0", 0)])), {"NET-4"})
+
+    def test_udp_to_an_outside_address(self):
+        report = run(CLEAN + [udp_send("203.0.113.10")])
+        self.assertEqual(rules(report), {"NET-4"})
+        self.assertIn("203.0.113.10:53/udp", report["destinations"])
+
+    def test_udp_to_loopback_dns_is_ignored(self):
+        self.assertEqual(rules(run(CLEAN + [udp_send("127.0.0.11")])), set())
 
     def test_proc_environ_with_stripped_path(self):
         self.assertIn("MEM-2", rules(run(CLEAN + [file_read("/4242/environ")])))
@@ -257,6 +287,7 @@ class RealEvidenceTest(unittest.TestCase):
             self.assertIn(key, predicate)
         self.assertEqual(predicate["ztb"]["verdict"], "pass")
         self.assertEqual(len(predicate["ztb"]["policySha256"]), 64)
+        self.assertIn("sourceCommit", predicate["ztb"])
 
 
 class LearnTest(unittest.TestCase):

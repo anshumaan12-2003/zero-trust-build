@@ -52,6 +52,55 @@ else
   failures=$((failures + 1))
 fi
 
+# Every container counts, not just the main one.
+refused() {
+  local name="$1" output="$2"
+  if [ "$3" = admitted ]; then
+    echo "FAIL: $name was admitted"
+    failures=$((failures + 1))
+  else
+    echo "PASS: $name was refused"
+  fi
+  echo "      $(echo "$output" | head -1 | cut -c1-200)"
+}
+init_pod="apiVersion: v1
+kind: Pod
+metadata:
+  name: unsigned-init
+spec:
+  initContainers:
+    - name: init
+      image: $UNSIGNED
+  containers:
+    - name: main
+      image: $OTHER"
+if output="$(echo "$init_pod" | kubectl apply --dry-run=server -f - 2>&1)"; then got=admitted; else got=refused; fi
+refused unsigned-init-container "$output" "$got"
+
+kubectl run debug-host --image="$OTHER" --restart=Never > /dev/null
+output="$(kubectl debug pod/debug-host --image="$UNSIGNED" --container=debugger 2>&1)"
+# kubectl debug can print an error and still exit 0, so check the pod itself.
+if kubectl get pod debug-host -o jsonpath='{.spec.ephemeralContainers[*].name}' | grep -q debugger; then
+  got=admitted
+else
+  got=refused
+fi
+refused unsigned-ephemeral-container "$output" "$got"
+
+# The allow-list: in an app namespace, only the signed app image by digest.
+kubectl create namespace ztb-gate-test > /dev/null
+kubectl label namespace ztb-gate-test ztb.dev/images=signed-app-only > /dev/null
+kubectl apply -f gate/app-namespace-images.yaml > /dev/null
+sleep 5
+if kubectl run -n ztb-gate-test allowed-signed --image="$GOOD" --restart=Never --dry-run=server -o name > /dev/null 2>&1; then
+  echo "PASS: allow-list: the signed image is admitted in the app namespace"
+else
+  echo "FAIL: allow-list: the signed image was refused in the app namespace"
+  failures=$((failures + 1))
+fi
+if output="$(kubectl run -n ztb-gate-test other-image --image="$OTHER" --restart=Never --dry-run=server 2>&1)"; then got=admitted; else got=refused; fi
+refused "allow-list: an image that isn't the app" "$output" "$got"
+
 # No real build with a failing verdict ever gets signed, so test the later
 # checks by breaking the policy instead. Each broken copy must refuse the good image.
 mutate() {
@@ -105,8 +154,30 @@ kubectl rollout status -n kyverno "$deployment" --timeout=180s > /dev/null
 
 # 2. Checker switched off. Kyverno deletes its own webhooks when its deployment
 # is scaled to 0 or deleted (IsGoingDown in pkg/utils/runtime/utils.go), so
-# the gate opens. This is a known gap. The test asserts it so a change in
-# Kyverno's behaviour gets noticed.
+# the gate opens. The guard (gate/guard-kyverno.yaml) refuses both.
+kubectl apply -f gate/guard-kyverno.yaml > /dev/null
+sleep 5
+if output="$(kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 2>&1)"; then
+  echo "FAIL: guard: Kyverno was scaled to 0"
+  failures=$((failures + 1))
+  kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=1 > /dev/null
+  kubectl rollout status -n kyverno deployment/kyverno-admission-controller --timeout=180s > /dev/null
+else
+  echo "PASS: guard: scaling Kyverno to 0 was refused"
+  echo "      $(echo "$output" | head -1 | cut -c1-200)"
+fi
+if kubectl delete -n kyverno deployment/kyverno-admission-controller --dry-run=server > /dev/null 2>&1; then
+  echo "FAIL: guard: deleting Kyverno was allowed"
+  failures=$((failures + 1))
+else
+  echo "PASS: guard: deleting Kyverno was refused"
+fi
+
+# A cluster admin can still remove the guard first. Then the gate opens for
+# images outside the app namespaces. This known gap is asserted, so a change
+# in Kyverno's behaviour gets noticed.
+kubectl delete validatingadmissionpolicybinding ztb-guard-kyverno > /dev/null
+sleep 5
 show_webhooks "before scaling Kyverno to 0"
 kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 > /dev/null
 kubectl wait -n kyverno --for=delete pod -l app.kubernetes.io/component=admission-controller --timeout=90s > /dev/null
@@ -117,5 +188,8 @@ else
   echo "FAIL: checker-off: refused, so Kyverno's shutdown behaviour changed. Update docs/week8-gate-results.md"
   failures=$((failures + 1))
 fi
+# The allow-list is built into the API server, so it still holds in the app namespace.
+if output="$(kubectl run -n ztb-gate-test checker-off-unsigned --image="$UNSIGNED" --restart=Never --dry-run=server 2>&1)"; then got=admitted; else got=refused; fi
+refused "allow-list with Kyverno off: the unsigned app image" "$output" "$got"
 
 exit "$failures"

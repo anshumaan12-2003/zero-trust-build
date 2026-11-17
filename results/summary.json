@@ -1,39 +1,39 @@
 {
-  "recorded": "2026-11-10",
-  "source_run": "https://github.com/anshumaan12-2003/zero-trust-build/actions/runs/42798034833",
+  "recorded": "2026-11-17",
+  "source_run": "https://github.com/anshumaan12-2003/zero-trust-build/actions/runs/44033718418",
   "runner": "GitHub-hosted ubuntu-24.04",
   "build_time": {
     "runs_each": 10,
     "method": "Plain and secured builds alternate on one runner. Plain is the same build steps in an ordinary container. Secured is sensor start, the sandboxed build through the proxy, and sensor stop. Medians, in seconds.",
-    "plain_build_s": 3.0,
-    "secured_sensor_start_s": 3.93,
-    "secured_build_s": 13.59,
-    "secured_sensor_stop_s": 3.3,
-    "secured_total_s": 21.04,
-    "added_s": 18.04,
+    "plain_build_s": 4.0,
+    "secured_sensor_start_s": 5.53,
+    "secured_build_s": 15.05,
+    "secured_sensor_stop_s": 3.35,
+    "secured_total_s": 24.09,
+    "added_s": 20.09,
     "raw_plain_s": [
-      3.24,
-      3.0,
-      3.04,
-      3.0,
-      3.0,
-      2.97,
-      2.94,
-      3.02,
-      2.96,
-      2.99
+      4.19,
+      3.89,
+      3.88,
+      3.92,
+      3.82,
+      4.09,
+      4.41,
+      4.07,
+      4.09,
+      3.93
     ],
     "raw_secured_total_s": [
-      20.8,
-      21.41,
-      20.26,
-      21.3,
-      20.26,
-      20.69,
-      21.28,
-      21.3,
-      20.29,
-      21.33
+      23.59,
+      23.6,
+      23.92,
+      33.98,
+      24.26,
+      23.73,
+      24.31,
+      24.83,
+      23.58,
+      24.72
     ]
   },
   "false_alarms": {
@@ -45,11 +45,11 @@
     "warnings": []
   },
   "evidence": {
-    "median_bytes": 6494267.5,
-    "max_bytes": 6738014,
-    "median_sensor_log_bytes": 1125502.0,
+    "median_bytes": 6633516.0,
+    "max_bytes": 6873402,
+    "median_sensor_log_bytes": 1263163.0,
     "median_build_output_bytes": 2856960.0,
-    "median_sensor_events": 1136.5
+    "median_sensor_events": 1272.0
   },
   "events_lost": {
     "runs_with_metrics": 20,
@@ -66,31 +66,34 @@
     "runs_each": 10,
     "method": "Server-side dry-run pod creation with the image signed by main, on kind. First with Kyverno installed but no image policy, then with the gate. The first gated call is reported apart, because later calls can use Kyverno's cache. Seconds, including kubectl's own start-up.",
     "no_policy_median_s": 0.06,
-    "gated_first_call_s": 2.19,
-    "gated_median_after_first_s": 1.19,
-    "added_median_s": 1.13
+    "gated_first_call_s": 2.41,
+    "gated_median_after_first_s": 1.34,
+    "added_median_s": 1.28
   },
   "attack_lab": {
     "source": "attack-lab workflow, each scenario asserted against lab/expected.toml",
-    "scenarios": 19,
-    "build_attacks": 12,
+    "scenarios": 22,
+    "build_attacks": 15,
     "caught": [
       "M1",
       "M2",
       "M3",
       "M4",
+      "M5",
       "M6",
-      "M9"
+      "M9",
+      "M13",
+      "M14"
     ],
     "not_caught": [
-      "M5",
       "M7",
       "M8",
       "M10",
       "M11",
-      "M12"
+      "M12",
+      "M15"
     ],
-    "summary": "6 of 12 build attacks caught; 6 not caught (M8 has nothing to find, the rest are documented misses)",
+    "summary": "9 of 15 build attacks caught; 6 not caught (M8 has nothing to find, the rest are documented misses)",
     "tampering_caught": [
       "S3",
       "S4",

@@ -15,7 +15,7 @@ What the Zero Trust Build Pipeline protects, who it protects against, and where 
 | A poisoned dependency | An npm package with a malicious install script (the TanStack pattern) | Yes, the main case |
 | A malicious or careless contributor | A pull request that changes build steps | Partly: pull requests never reach the release job, but code merged to `main` is trusted |
 | Someone with registry write access | Pushes or retags an image by hand | Yes |
-| Someone with cluster access below admin | Creates pods directly | Yes |
+| Someone with cluster access below admin | Creates pods directly | Yes, in the app namespaces. Elsewhere only images named like the app are checked |
 | A cluster admin, GitHub, Sigstore or the registry | Turns off the gate, or forges identity at the source | No: these are trusted |
 
 ## Trust boundaries
@@ -37,11 +37,17 @@ The main rule: code that might be poisoned never gets a key, and code that holds
 | Connections outside the allow list | The sandbox network has no route out; the sensor records every connect (NET-1); the proxy refuses other domains (NET-2, NET-3) | Lab M1, M2, M6, M9 |
 | Reading the fake decoy credentials | File hooks on the decoys (FILE-1) | Lab M3 |
 | Reading another process's environment | File hook on `/proc/*/environ` (MEM-2) | Lab M4 |
+| Opening another process's memory, even when the kernel refuses | File-open hook on `/proc/*/mem` (MEM-2) | Lab M5 |
+| Opening a decoy without reading it, as memory-mapping does | File-open hook on the decoys (FILE-1) | Lab M14 |
+| UDP sent without connect() | `udp_sendmsg` hook (NET-4) | Lab M13 |
 | Reading memory with `ptrace` or `process_vm_readv` | Syscall hooks (MEM-1) | Judge unit tests |
 | A sensor that is off, stopped or broken | Secret-nonce canaries at start and end (SENSOR-1); empty or corrupt evidence fails (SENSOR-2 to 4) | sensor-build kill-test, lab S4, S5 |
 | Lost sensor events | The judge reads Tetragon's lost-event counters from the evidence | Week 10 measurements |
 | Missing or swapped build output | The judge requires output, and the release job checks its hash against the judged one | Lab S3, Week 7 |
-| Images that skipped the pipeline | The gate requires a keyless signature from `pipeline.yml@refs/heads/main` | Week 8 gate test |
+| Images that skipped the pipeline | The gate requires a keyless signature from `pipeline.yml@refs/heads/main`, in normal, init and ephemeral containers | Gate test |
+| Any other image in the app namespaces | A built-in allow-list admits only the app image by digest, even with Kyverno down | Gate test, cluster check |
+| Switching the gate off | A built-in policy refuses scaling Kyverno's admission controller below 1 or deleting it | Gate test, cluster check |
+| A branch or fork signing an image | The signing job runs in a `release` environment that accepts only `main` | Repo settings |
 | An unsigned image committed to `deploy/` | The gate refuses the Deployment itself, so Argo CD's sync fails and no pod is created | Week 11 cluster check |
 | A record signed by another branch or workflow | The certificate identity must match exactly | Week 8 gate test |
 | Moved tags | The gate checks and pins images by digest | Week 8 gate test |
@@ -59,7 +65,7 @@ These are measured, not guessed. Each is a scenario in `lab/` that the pipeline 
 
 | Miss | Why | What would close it |
 |---|---|---|
-| Reading `/proc/<pid>/mem` (lab M5) | The kernel refuses the open before the read hook fires, so no event exists | A hook on file opens, which would record refused attempts |
+| A trusted tool replaced by its own script (lab M15) | The known-program list matches paths, and `node_modules/.bin/tsc` is writable by the build | Identify programs by hash, for example with Tetragon's IMA hashes, or keep build tools outside the writable tree |
 | Data hidden in DNS lookups (lab M7) | Lookups go to Docker's resolver on loopback, which the judge ignores | Logging DNS queries at the resolver, or no DNS in the sandbox |
 | Data sent through the allowed npm domain (lab M11) | The allow list controls where traffic goes, not what it carries | An npm-aware proxy that allows only package downloads |
 | An extra file slipped into the output (lab M10) | The record covers behaviour, not the contents of the output | Comparing the output against a reproducible build |
@@ -70,7 +76,7 @@ These are measured, not guessed. Each is a scenario in `lab/` that the pipeline 
 
 ## Known gaps in the controls themselves
 
-- **Kyverno scaled to 0 opens the gate.** Kyverno deletes its own webhooks when its deployment is scaled to 0 or deleted, so `failurePolicy: Fail` no longer applies. A crash keeps the webhooks and refuses everything. Only cluster admins can scale Kyverno today. In Week 11 this happened without anyone creating a pod by hand: Argo CD kept retrying a refused unsigned Deployment, and once Kyverno was off, a retry got the unsigned app running. It kept running after Kyverno came back. The `ZTBGateDown` alert now fires about 2 minutes after the scale to 0, so the gap is detected but not prevented. A `ValidatingAdmissionPolicy` that refuses scaling Kyverno to 0 would close it (`docs/week8-gate-results.md`, `docs/week11-cluster-results.md`).
+- **Kyverno switched off by a cluster admin.** Kyverno deletes its own webhooks when its deployment is scaled to 0 or deleted. In Week 11, Argo CD's retry then got an unsigned app running. Since the hardening pass, `gate/guard-kyverno.yaml` refuses the scale and the delete, and `gate/app-namespace-images.yaml` keeps the app namespaces closed to anything but the signed app image, both as built-in policies that work without Kyverno. A cluster admin can still remove the guard. Then images outside the app namespaces are unchecked, and `ZTBGateDown` fires about 2 minutes later (`docs/hardening-results.md`).
 - **Unknown programs.** Until Week 10, a program never seen in clean builds was only a warning (PROC-2). See `docs/week10-measure-results.md` for the switch to fail.
 - **Argo CD can deploy whatever is on `main`.** Its project (`cluster/argocd/project.yaml`) limits it to Deployments and Services in the app namespaces from this repo, so a bad commit can't create cluster roles or change the gate. The gate still checks every image it deploys.
 - **Third-party actions.** Every action and its own dependencies are locked to exact commits in `.github/workflows/actions.lock`. GitHub's runner refuses an action whose tag no longer points at the locked commit, and CI runs `gh actions-lock --verify`. zizmor and actionlint also check the workflows. A locked action is still trusted code.

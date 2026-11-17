@@ -29,8 +29,9 @@ helm upgrade --install kyverno kyverno/kyverno \
   --namespace kyverno --create-namespace --version "$KYVERNO_CHART" \
   -f cluster/values/kyverno.yaml --wait --timeout 5m
 
-echo "Applying the gate"
+echo "Applying the gate, the app-namespace allow-list and the Kyverno guard"
 kubectl apply -f gate/require-attestation.yaml
+kubectl apply -f gate/app-namespace-images.yaml -f gate/guard-kyverno.yaml
 # The webhook takes a moment to start enforcing. Wait until it refuses the unsigned image.
 for i in $(seq 1 30); do
   if ! kubectl run probe --image="$UNSIGNED" --restart=Never --dry-run=server -o name > /dev/null 2>&1; then

@@ -1,5 +1,8 @@
-# Reports reads of decoy credentials and of other processes' secrets.
+# Reports opens and reads of decoy credentials and of other processes' secrets.
 # Based on Tetragon's examples/quickstart/file_monitoring.yaml.
+# security_file_open runs before the file's own open handler, so it records
+# attempts the kernel then refuses (lab M5: /proc/<pid>/mem) and files that
+# are opened and memory-mapped instead of read. The read hook alone missed both.
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicy
 metadata:
@@ -13,6 +16,25 @@ spec:
       type: "file"
     - index: 1
       type: "int"
+    selectors:
+    - matchArgs:
+      - index: 0
+        operator: "Postfix"
+        values:
+        - "/.aws/credentials"
+        - "/.ssh/id_rsa"
+        - "/.config/gh/hosts.yml"
+        - "/environ"
+    - matchArgs:
+      - index: 0
+        operator: "Postfix"
+        values:
+        - "/mem"
+  - call: "security_file_open"
+    syscall: false
+    args:
+    - index: 0
+      type: "file"
     selectors:
     - matchArgs:
       - index: 0

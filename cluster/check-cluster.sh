@@ -49,18 +49,19 @@ else
   pass "the unsigned image is refused: $(echo "$output" | cut -c1-160)"
 fi
 
-# 3. Git asks for the unsigned image. Kyverno checks pod controllers too, so
-# the gate refuses the Deployment itself and Argo CD's sync fails. No
-# ReplicaSet or pod is ever created. (The first CI run waited for refused
-# pods, which never came: the refusal happens one step earlier.)
+# 3. Git asks for the unsigned image. Kyverno and the allow-list both check
+# pod controllers, so the Deployment itself is refused and Argo CD's sync
+# fails. No ReplicaSet or pod is ever created. (The first CI run waited for
+# refused pods, which never came: the refusal happens one step earlier.)
 sed "s|REVISION|$REVISION|" cluster/argocd/bad-app.yaml | kubectl apply -f - > /dev/null
 refusal=""
 for _ in $(seq 1 36); do
   refusal="$(kubectl get application -n argocd ztb-bad -o jsonpath='{.status.operationState.message} {.status.operationState.syncResult.resources[*].message}' 2> /dev/null)"
-  [[ "$refusal" == *"not signed by pipeline.yml"* ]] && break
+  [[ "$refusal" == *"not signed by pipeline.yml"* || "$refusal" == *"Only the signed app image"* ]] && break
   sleep 5
 done
-if [[ "$refusal" == *"not signed by pipeline.yml"* ]] && ! kubectl get deployment -n ztb-bad ztb-unsigned > /dev/null 2>&1; then
+if [[ "$refusal" == *"not signed by pipeline.yml"* || "$refusal" == *"Only the signed app image"* ]] \
+  && ! kubectl get deployment -n ztb-bad ztb-unsigned > /dev/null 2>&1; then
   pass "the gate refused the unsigned Deployment from Git, so Argo CD's sync failed"
   echo "      $(echo "$refusal" | tr -s ' ' | head -c 260)"
 else
@@ -129,7 +130,16 @@ else
   fail "ZTBUnprovenImageRefused is $state"
 fi
 
-# 6. Switch the checker off, the known gap from Week 8. The gate opens, so an alert must fire.
+# 6. Switch the checker off, the known gap from Week 8. The guard refuses it.
+if kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 > /dev/null 2>&1; then
+  fail "the guard let Kyverno be scaled to 0"
+else
+  pass "the guard refused scaling Kyverno to 0"
+fi
+
+# A cluster admin can remove the guard first. Then the alert must fire.
+kubectl delete validatingadmissionpolicybinding ztb-guard-kyverno > /dev/null
+sleep 5
 kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=0 > /dev/null
 start=$SECONDS
 state=inactive
@@ -144,28 +154,30 @@ else
   fail "ZTBGateDown is $state $((SECONDS - start)) s after Kyverno was scaled to 0"
 fi
 
-# Argo CD keeps retrying the refused sync. With the gate open, a retry gets
-# through and the unsigned app runs. This is what the gap means in practice.
-# Argo CD's retry timing varies, so not seeing it here isn't a failure.
+# Argo CD keeps retrying the refused sync. Before the allow-list, a retry got
+# through once Kyverno was off (Week 11). The allow-list is built into the API
+# server, so the app namespaces stay closed. Wait as long as that took before.
 opened=""
-while [ $((SECONDS - start)) -lt 480 ]; do
-  if kubectl get pods -n ztb-bad -l app=ztb-unsigned -o jsonpath='{.items[*].status.phase}' 2> /dev/null | grep -q Running; then
+while [ $((SECONDS - start)) -lt 300 ]; do
+  if kubectl get pods -n ztb-bad -l app=ztb-unsigned -o name 2> /dev/null | grep -q .; then
     opened=$((SECONDS - start))
     break
   fi
   sleep 10
 done
 if [ -n "$opened" ]; then
-  echo "KNOWN GAP: Argo CD retried while Kyverno was off, and the unsigned app was running $opened s after the scale to 0"
+  fail "with Kyverno off, Argo CD got the unsigned app running in ztb-bad after $opened s"
 else
-  echo "NOT SEEN: no unsigned pod ran within $((SECONDS - start)) s of the scale to 0"
+  pass "with Kyverno off, the allow-list kept the unsigned app out of ztb-bad for $((SECONDS - start)) s"
+fi
+# Outside the app namespaces nothing but Kyverno checks images, so the gap remains there.
+if kubectl run gap-unsigned --image="$UNSIGNED" --restart=Never --dry-run=server -o name > /dev/null 2>&1; then
+  echo "KNOWN GAP: with the guard removed and Kyverno off, an unsigned image is admitted outside the app namespaces"
+else
+  echo "NOT SEEN: an unsigned image outside the app namespaces was refused with Kyverno off"
 fi
 kubectl scale -n kyverno deployment/kyverno-admission-controller --replicas=1 > /dev/null
 kubectl rollout status -n kyverno deployment/kyverno-admission-controller --timeout=180s > /dev/null
-if [ -n "$opened" ]; then
-  # The gate only checks new pods, so turning Kyverno back on doesn't stop one already running.
-  phase="$(kubectl get pods -n ztb-bad -l app=ztb-unsigned -o jsonpath='{.items[*].status.phase}')"
-  echo "KNOWN GAP: with Kyverno back, the unsigned pod is still ${phase:-gone}"
-fi
+kubectl apply -f gate/guard-kyverno.yaml > /dev/null
 
 exit "$failures"

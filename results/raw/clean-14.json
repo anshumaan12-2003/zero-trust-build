@@ -3,10 +3,10 @@
   "verdict": "pass",
   "fail_rules": [],
   "warnings": [],
-  "evidence_bytes": 6738014,
-  "sensor_log_bytes": 1369019,
+  "evidence_bytes": 6512291,
+  "sensor_log_bytes": 1142669,
   "build_output_bytes": 2856960,
-  "sensor_events": 1332,
+  "sensor_events": 1148,
   "metrics_saved": true,
   "lost_or_missed": {
     "tetragon_missed_link_probes_total": 0.0,
