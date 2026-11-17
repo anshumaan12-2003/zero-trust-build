@@ -12,7 +12,7 @@ Recorded on 2026-11-17. A review after Week 12 found gaps in what the sensor see
 
 | Gap | Fix | Evidence |
 |---|---|---|
-| Opening `/proc/<pid>/mem` left no event, because the kernel refused the open before the read hook ran | A `security_file_open` hook with the same path filters. It runs before the file's own open handler, so refused attempts are recorded | Lab M5 now fails with MEM-2: "node opened process data: /proc/1/mem" |
+| Opening `/proc/<pid>/mem` left no event, because the kernel refused the open before the read hook ran | A `security_file_open` hook with the same path filters. It runs before the file's own open handler, so refused attempts are recorded | Lab M5 now fails with MEM-2 on `/proc/1/mem` |
 | A file opened and memory-mapped is never `read()`, so the read hook missed it | The same open hook | New lab M14 opens the decoy SSH key without reading it, and fails with FILE-1 |
 | UDP can be sent without `connect()`, which the connect hook never sees | A `udp_sendmsg` and `udpv6_sendmsg` hook that leaves out loopback, plus a new judge rule, NET-4 | New lab M13 fails with NET-4: "sent UDP from a socket that never connected" |
 | A build can replace `node_modules/.bin/tsc`, a program on the known list, with its own script | Not fixed. Measured as a documented miss | New lab M15 passes, as predicted |

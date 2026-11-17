@@ -146,6 +146,10 @@ class RulesTest(unittest.TestCase):
     def test_decoy_opened_without_a_read(self):
         self.assertEqual(rules(run(CLEAN + [file_open("/tmp/home/.ssh/id_rsa")])), {"FILE-1"})
 
+    def test_open_then_read_is_one_finding(self):
+        report = run(CLEAN + [file_open("/tmp/home/.aws/credentials"), file_read("/tmp/home/.aws/credentials")])
+        self.assertEqual([f["rule"] for f in report["findings"]], ["FILE-1"])
+
     def test_refused_open_of_proc_mem(self):
         self.assertEqual(rules(run(CLEAN + [file_open("/proc/1/mem")])), {"MEM-2"})
 
