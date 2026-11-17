@@ -120,10 +120,11 @@ def judge(events, proxy_lines, policy, nonce, container_id, proxy_ip):
                     destinations.add(f"{ip}:{sock.get('dport', 0)}/udp")
                     add("NET-4", "fail", f"{binary} sent UDP to {ip}:{sock.get('dport', 0)}")
             path = argument.get("file_arg", {}).get("path", "")
+            verb = "opened" if function == "security_file_open" else "read"
             if path and matches(path, policy["files"]["decoys"]):
-                add("FILE-1", "fail", f"{binary} read a decoy file: {path}")
+                add("FILE-1", "fail", f"{binary} {verb} a decoy file: {path}")
             elif path and matches(path, policy["files"]["process_secrets"]):
-                add("MEM-2", "fail", f"{binary} read process data: {path}")
+                add("MEM-2", "fail", f"{binary} {verb} process data: {path}")
 
     for stage in ("start", "end"):
         if stage not in canaries:

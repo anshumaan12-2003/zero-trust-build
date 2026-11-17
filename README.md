@@ -61,27 +61,27 @@ Measured on GitHub's `ubuntu-24.04` runners. These are small samples, so they're
 
 | Measure | Result | Source |
 |---|---|---|
-| False alarms | **0 of 40** clean builds failed | [Week 10](docs/week10-measure-results.md) |
-| Lost sensor events | **0 of 40** runs | [Week 10](docs/week10-measure-results.md) |
-| Build attacks caught | **6 of 12**, plus all 3 evidence-tampering attempts | [Attack lab](docs/week9-attack-lab-results.md) |
-| Gate cases | **8 of 8** behaved as designed, including one known gap | [Week 8](docs/week8-gate-results.md) |
-| Added build time | **+18 s** (3.0 s plain, 21.0 s secured; median of 10 each) | [Week 10](docs/week10-measure-results.md) |
-| Evidence per build | **6.5 MB** | [Week 10](docs/week10-measure-results.md) |
-| Gate time per pod | **+1.1 s** (2.2 s on the first call) | [Week 10](docs/week10-measure-results.md) |
+| False alarms | **0 of 20** clean builds failed with the current sensor (and 0 of 40 before the new hooks) | [Hardening](docs/hardening-results.md) |
+| Lost sensor events | **0 of 20** runs | [Hardening](docs/hardening-results.md) |
+| Build attacks caught | **9 of 15**, plus all 3 evidence-tampering attempts | [Hardening](docs/hardening-results.md) |
+| Gate cases | **16 of 16** behaved as designed, including one known gap | [Hardening](docs/hardening-results.md) |
+| Added build time | **+20 s** (4.0 s plain, 24.1 s secured; median of 10 each) | [Hardening](docs/hardening-results.md) |
+| Evidence per build | **6.6 MB** | [Hardening](docs/hardening-results.md) |
+| Gate time per pod | **+1.3 s** (2.4 s on the first call) | [Hardening](docs/hardening-results.md) |
 | Gate-down alert | Fires **120 to 141 s** after Kyverno is scaled to 0 | [Week 11](docs/week11-cluster-results.md) |
 
-The 40 clean builds are two runs of 20; the results page shows the first. The 18 s is a fixed cost, so on this 3-second demo build it looks bigger than it would on a real one. Raw data is in [`results/`](results/).
+From `measure.yml` run [44033718418](https://github.com/anshumaan12-2003/zero-trust-build/actions/runs/44033718418). The added time is a fixed cost, so on this 4-second demo build it looks bigger than it would on a real one. Raw data is in [`results/`](results/).
 
 ## What it can't do
 
 Each of these was tested, not guessed. Every one is a scenario the pipeline lets through, and each was predicted before the run.
 
-- **Reading `/proc/<pid>/mem`.** The kernel refuses the open before the read hook fires, so there's no event to judge.
 - **Data hidden in DNS lookups.** Lookups go to Docker's resolver, which the judge doesn't see.
 - **Data sent through the allowed npm domain.** The proxy controls where traffic goes, not what it carries.
 - **An extra file slipped into the output.** The record covers behaviour, not the output's contents.
 - **Code that waits until the app runs.** Only the build is watched.
-- **Scaling Kyverno to 0 opens the gate.** Kyverno removes its own webhooks. In Week 11, Argo CD's retry got an unsigned app running this way, and it kept running after Kyverno came back. An alert fires, but nothing prevents it yet.
+- **A trusted tool replaced by its own script.** The known-program list matches paths, and the build can overwrite `node_modules/.bin/tsc`. The script still faces every other rule.
+- **Kyverno switched off by a cluster admin.** A built-in policy refuses scaling or deleting Kyverno, and the app namespaces allow only the signed app image even with Kyverno off. But an admin can remove the guard, and then images outside the app namespaces are no longer checked. An alert fires within about 2 minutes.
 
 It also trusts GitHub, Sigstore, the registry, and the source code on `main`. The [threat model](docs/threat-model.md) lists what would close each gap.
 
