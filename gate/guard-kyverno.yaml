@@ -24,7 +24,12 @@ spec:
   validations:
     - expression: request.operation != 'DELETE'
       message: "Kyverno's admission controller can't be deleted while the gate guard is on"
-    - expression: request.operation == 'DELETE' || object.spec.?replicas.orValue(1) >= 1
+    # kubectl scale sends a Scale object, which leaves replicas out when it is
+    # 0. So a missing value means 0 there. A first version read it as 1, and
+    # CI showed scaling to 0 still went through.
+    - expression: >-
+        request.operation == 'DELETE' ||
+        (object.kind == 'Scale' ? object.spec.?replicas.orValue(0) : object.spec.?replicas.orValue(1)) >= 1
       message: "Kyverno's admission controller can't be scaled below 1 while the gate guard is on"
 ---
 apiVersion: admissionregistration.k8s.io/v1

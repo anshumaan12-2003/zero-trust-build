@@ -67,13 +67,14 @@ jobs:
 
   # The only job that can sign. It runs after the judge passes, never runs
   # build code, and assembles the image with COPY only.
-  # Pull requests never reach it. A manual run on a branch can, for testing,
-  # but its certificate names that branch, so the gate (Week 8) refuses it.
+  # Pull requests never reach it. The release environment accepts only main,
+  # so a manual run on another branch is refused before the job starts.
   release:
     name: Sign and publish the image
     needs: judge
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    environment: release
     permissions:
       contents: read # read the release Dockerfile
       packages: write # push the image and its signatures
